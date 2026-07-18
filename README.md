@@ -1,6 +1,6 @@
 # pvectl
 
-**A friendly command-line companion for Proxmox VE.** Manage a container
+**A command-line companion for Proxmox VE.** Manage a container
 or VM - start, stop, snapshot, back up, edit, or migrate it — all
 without leaving your terminal or memorizing a single vmid.
 
