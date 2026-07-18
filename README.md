@@ -21,9 +21,9 @@ without leaving your terminal or memorizing a single vmid.
   spinner and a final `✓`/`✗` summary with timing.
 - **Secrets stay in your keychain.** `pvectl setup` stores your API token
   secret in the OS keychain, if available.
-- **Use with your coding agent.** Works well with your coding agent of choice.
 - **Fuzzy finder, not a vmid lookup table.** `pvectl ct select`/`pvectl qm select` let you
   type a few letters of a name instead of remembering `101` vs `102`.
+- **Use with your coding agent.** Works with your harness of choice.
 
 ## Install
 
@@ -134,12 +134,12 @@ your own SSH config/agent rather than credentials stored by `pvectl`.
 Setup your SSH config in this format:
 
 ```
-Host <node1>
-  HostName <node1>
+Host <node1-name>
+  HostName <node1-host-or-ip>
   User <user>
   IdentityFile <path/to/key>
-Host <node2>
-  HostName <node2>
+Host <node2-name>
+  HostName <node2-host-or-ip>
   User <user>
   IdentityFile <path/to/key>
 ```
