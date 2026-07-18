@@ -4,7 +4,7 @@
 set -eu
 
 repo="davegallant/pvectl"
-install_dir="${INSTALL_DIR:-/usr/local/bin}"
+install_dir="${INSTALL_DIR:-/usr/bin}"
 
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 arch=$(uname -m)
