@@ -1,0 +1,373 @@
+# AGENTS.md
+
+Guidance for AI agents (and humans) working in this repo.
+
+## What this is
+
+`pvectl` (Proxmox VE control) is a Go CLI that talks to the Proxmox VE
+REST API directly to fuzzy-find and manage Proxmox resources from any
+machine — not just the Proxmox host. It replaced an earlier 77-line bash
+script that wrapped `pct`/`fzf` and only worked locally on the Proxmox
+host. Resource types live under their own subcommand: `ct` for LXC
+containers, `qm` for QEMU VMs. Other resource types can be added later the
+same way, without reshaping the top-level command.
+
+Module path `github.com/davegallant/pvectl`, binary name `pvectl` (built from
+`./cmd/pvectl`).
+
+## Key documents
+
+- `README.md` — user-facing install/setup/usage.
+- `docs/cli/` — auto-generated flag-by-flag reference for every command
+  (`cobra/doc`, via `tools/gendocs`). Regenerate with `just docs` after
+  adding/changing any command or flag; don't hand-edit these files, they
+  get overwritten. Commit the regenerated files alongside the code change
+  that caused them, same as any other generated-and-committed artifact.
+
+## History & design rationale
+
+- Started as a 77-line bash script wrapping `pct`/`fzf` — worked
+  only on the Proxmox host itself. Rewritten in Go against the REST API so
+  it runs from any machine.
+- REST API instead of shelling out to `pct`/`qm`: works from anywhere, not
+  just the Proxmox host. `enter` is the one exception — there's no REST
+  equivalent for an interactive console, so it still shells out to `ssh
+  <node> pct enter <vmid>` / `qm terminal <vmid>`.
+- `setup` validates credentials (`GET /version`) before writing anything to
+  disk/keychain. Every other command fails fast pointing to `pvectl setup`
+  if config/secret is missing, rather than auto-invoking setup itself.
+- `edit` round-trips the *entire* returned config (not a curated subset),
+  diffs it against the original, and `PUT`s with the original `digest` for
+  optimistic concurrency — a digest mismatch surfaces as "config changed
+  elsewhere, re-run edit," and the temp file is preserved on any failure so
+  edits are never silently lost.
+- `ct`/`qm` are a deliberate parallel tree, not a shared abstraction —
+  trading some duplication for lower risk to the already-shipped, tested
+  `ct` path when `qm` was added: `vm_picker.go` parallels `picker.go`
+  (sharing only package-level helpers), `qemu.go` parallels `lxc.go` (same
+  REST shapes, different paths), and `qm enter` uses `qm terminal` (works
+  only with a serial console configured, its own Ctrl-O detach key, hinted
+  before attaching — a real UX gap vs. `ct enter`, not something pvectl can
+  paper over). `menu.go` and `internal/editconf` are fully shared, since
+  neither has guest-type-specific coupling. `VMConfig` has no
+  `RawLXC`-equivalent field, since flat QEMU configs have nothing to strip
+  before diffing.
+- `status` hits two endpoints — `/cluster/resources` (per-node CPU/mem,
+  containers/VMs/storage) and `/cluster/status` (node IPs, cluster
+  name/quorum, absent for a standalone node) — merged by node name; all
+  calls must succeed or `status` hard-errors, no partial report. Byte sizes
+  use binary units with single-letter suffixes (`120G`, not `120GiB`).
+- The storage table collapses same-named entries to one row only when
+  `StorageResource.Shared` is true (genuinely cluster-wide storage like
+  NFS/Ceph). Non-shared storage that merely shares a name across nodes
+  (default `local`/`local-lvm`) is never collapsed and is disambiguated as
+  `name@node` — an earlier name-only collapse silently dropped every node
+  past the first for non-shared storage, reported by a user as
+  `local`/`local-lvm` going missing on a multi-node cluster.
+- Picker preview truncates each field to 200 runes — Proxmox "notes"
+  fields are sometimes filled with large HTML banners that would otherwise
+  swamp the preview. `edit`'s full `$EDITOR` view is always untruncated, so
+  nothing is lost when actually saving.
+
+## Build/dev commands
+
+Use the `justfile` recipes rather than raw `go` invocations where possible:
+
+- `just build` — `go build -o pvectl ./cmd/pvectl`
+- `just run *args` — `go run ./cmd/pvectl {{args}}`
+- `just test` — `go test ./...`
+- `just vet` — `go vet ./...`
+- `just fmt` — `gofmt -l -w .`
+- `just tidy` — `go mod tidy`
+- `just install` — `go install ./cmd/pvectl`
+- `just check` — vet + test + build; run this before considering a change
+  done
+- `just docs` — regenerate `docs/cli/` from the command tree; run this
+  after adding/changing any command or flag
+- `just clean` — remove build artifacts
+
+`CGO_ENABLED=0` is exported repo-wide in the justfile — `pvectl` has no cgo
+dependencies, so builds shouldn't need a C compiler.
+
+If a sandbox/CI environment has a read-only default `GOPATH` or no C
+compiler, prefix `go` commands with
+`GOPATH=<writable-dir> GOMODCACHE=<writable-dir> CGO_ENABLED=0`. Only reach
+for this if you actually hit a read-only-filesystem or missing-gcc error —
+it's not needed on a normal dev machine.
+
+## Testing philosophy
+
+- `internal/api` — table-driven tests against `httptest.Server`, covering
+  auth headers, resource listing, start/stop/reboot/snapshot calls, and
+  the config GET/PUT digest flow including a simulated digest mismatch.
+- `internal/config` / `internal/secrets` — config load/save tested against
+  a temp directory; secrets tested via an in-memory fake keyring behind
+  the `internal/secrets` interface, never the real OS keychain.
+- `internal/tui` — unit tests cover the model's pure logic (filtering,
+  selection state transitions), not full terminal rendering.
+- `edit`'s temp-file parse/diff logic is unit tested directly as pure
+  functions, independent of the actual `$EDITOR` exec call.
+- `internal/ssh` and `$EDITOR` exec calls are integration-level and only
+  practically verifiable against a real cluster/editor — there's no
+  end-to-end CI test against a live Proxmox cluster. Don't try to make
+  these pure-unit-testable at the cost of real coverage; keep the seam
+  (interface/exec wrapper) mockable instead.
+
+## Gotchas and non-obvious behavior
+
+These were each found via live debugging against a real Proxmox cluster
+(2-node, 42 LXC containers) and fixed — don't reintroduce them:
+
+- **Nothing has a default timeout.** An unreachable host or a hung OS
+  keychain call will otherwise block the CLI forever with no feedback.
+  Current values: 30s HTTP client timeout (`internal/api`), 3s keyring
+  timeout (`internal/secrets`). Preserve these when touching either
+  package.
+- **OS keychain is not guaranteed to be available** (e.g. no D-Bus Secret
+  Service on some NixOS/KDE setups) — `pvectl setup` must fall back to a
+  local file (`~/.config/pvectl/secrets.json`, mode `0600`) after the keyring
+  times out, and record which backend was used in `config.yaml`
+  (`secret_backend`) so later commands read from the right place directly
+  instead of re-probing a keyring known not to work.
+- **`GET /cluster/resources?type=vm`'s server-side filter is unreliable**
+  — it returned an empty list on a real cluster despite real containers
+  existing. Don't reintroduce this filter; `ListContainers` filters
+  client-side on each resource's own `type` field instead.
+- **Proxmox "Privilege Separation" token gotcha**: a freshly created API
+  token (even one tied to `root`) has zero permissions until an ACL is
+  explicitly granted, or Privilege Separation is unchecked at creation.
+  This silently returns an empty resource list (not an auth error), so
+  `pvectl setup` succeeds but every command shows "no containers found."
+  `pvectl setup` prints a warning about this before prompting for anything;
+  the README documents it too. Keep both in sync if this flow changes.
+- **Raw `lxc.*` passthrough config lines** (cgroup rules, bind mounts —
+  anything without a dedicated named Proxmox API parameter) come back
+  from Proxmox as a nested array under one `lxc` field. `api.Config.RawLXC`
+  renders these as individual `lxc.subkey: value` lines (matching the real
+  conf file) in both the picker preview and the `$EDITOR` view. **They are
+  display-only, not editable** — `applyEdit` strips any `lxc.`-prefixed key
+  before diffing so these lines are never sent back to `PutConfig` even if
+  present in the edited text. See "Known limitations" below before
+  changing this.
+- **`ssh host 'command'` does not allocate a pty by default**, and
+  `pct enter` needs a real pty to attach the container console. This is a
+  general SSH behavior, not pvectl-specific — confirmed by reproducing with
+  plain `ssh` directly. `internal/ssh` runs `ssh -t <node> pct enter <vmid>`
+  to force pty allocation; don't drop the `-t`.
+- **TUI needs alt-screen for real container counts**: with 42+ items, a
+  non-alt-screen TUI reprints into scrollback on every keystroke.
+  `internal/tui` uses `tea.WithAltScreen()` so the whole list redraws
+  cleanly; container rows are column-aligned with status colored by
+  running/stopped/other.
+- **Storage content listing returns numeric fields as JSON strings for
+  some storage types** — confirmed on `local-lvm` (LVM-thin):
+  `GET /nodes/{node}/storage/{storage}/content`'s `ctime`/`size`/`vmid`
+  came back as quoted strings instead of numbers, breaking a strict
+  `int64`/`int` struct field (`json: cannot unmarshal string into...`).
+  `internal/api/backup.go`'s `looseInt64` type accepts either a JSON
+  number or a numeric string; reuse this pattern for any other numeric
+  field from Proxmox's API that turns out to have the same inconsistency,
+  rather than assuming a field's JSON type is stable across storage
+  plugins.
+- **A Proxmox task's `exitstatus` can be a bare, undescriptive string**
+  (e.g. `WARNINGS: 1` from a `vzcreate` task, no further detail in the
+  status reply itself) — confirmed via a real `ct create` whose only
+  "problem" was a systemd/nesting hint on an otherwise fully-created
+  container. `renderTaskOutcome` (`cmd/progress.go`) now fetches and
+  prints the task's real log (`printTaskLogLines`) whenever
+  `status.ExitStatus != "OK"`, unconditionally — not gated on `--verbose`
+  like migrate's own `printTaskLogIfVerbose` (which now calls the same
+  shared helper for its success-path log dump). This applies to every
+  action that goes through `runProgressAction`, not just `ct create`.
+- **`WARNINGS: N` is Proxmox's non-fatal exit status, not a failure** —
+  same real `ct create` above: the task's `exitstatus` was `WARNINGS: 1`
+  rather than `OK`, but the container was fully created; Proxmox's own
+  GUI shows this as a completed task with a warning icon, not a red
+  failure. `TaskStatus.Failed()` (`internal/api/tasks.go`) used to treat
+  *any* non-`OK` exit status as a failure everywhere (start/stop/backup/
+  migrate/snapshot/create) — it now excludes `WARNINGS: N` specifically
+  via the shared `TaskCompletedWithWarnings` helper, which
+  `cmd/tasks.go`'s `taskStatusLabel` also uses (`warning: <reason>`
+  instead of `failed: <reason>` in `pvectl tasks`'s STATUS column) so the
+  two "is this really a failure" checks can't drift apart. The log is
+  still printed either way (see above), so the warning itself is never
+  silently hidden — only the ✓/✗ and exit-code verdict changed.
+- **A Proxmox API error can set both `message` and a structured `errors`
+  map** — e.g. `Parameter verification failed.` as the message, with the
+  actual "which field, why" detail only in `errors`. `apiError.Error()`
+  used to return `message` alone whenever it was non-empty, silently
+  dropping the actually-useful per-field detail (found via a real
+  `ct create` that only ever showed the generic message). It now renders
+  both when present, sorted by field for deterministic output.
+
+## Known limitations / accepted trade-offs (deliberate, not bugs)
+
+- Single Proxmox cluster — deliberate non-goal, no multi-cluster or
+  standalone-host fan-out. (Resource-type coverage is not on this list —
+  both `ct` and `qm` are supported, see "What this is" above.)
+- No generic Proxmox config editor beyond what `edit` needs — no
+  node-level or storage-level configuration.
+- No filtering/sorting flags anywhere — add only if an actual need shows up.
+- No packaging/distribution automation (Homebrew formula, GitHub releases).
+- `status` only counts VMs; managing them is `qm`'s job.
+- `pvectl ct config edit` cannot add/remove raw `lxc.*` passthrough lines
+  (see above) — would require `Config.Fields` to support ordered/repeating
+  keys (it's currently a plain map) to do this properly. Revisit only if
+  actually needed, not opportunistically. `pvectl qm config edit` has no
+  such limitation to begin with — `VMConfig` has no raw-passthrough block.
+- `pvectl ct config edit` and `pvectl qm config edit` both cannot remove regular fields —
+  deleting a line in `$EDITOR` is detected and warned about, but not sent
+  as a removal (map-based-`Fields` limitation, plus Proxmox's PUT API
+  handles field removal differently than a value change).
+- `pvectl qm enter` only works if the VM has a serial console device
+  configured — `qm terminal` itself errors otherwise, and that error is
+  surfaced as-is (same "let SSH's own error output speak for itself"
+  policy as `ct enter`). This is a real UX gap versus `ct enter` (which
+  always works for LXC), not something pvectl can paper over.
+- `enter`'s SSH target is whatever Proxmox reports as the node's name
+  (e.g. `pve-g3-2`) — pvectl does not store or manage SSH connection details
+  itself; it relies entirely on the user's own `~/.ssh/config` (or DNS)
+  resolving that name. This was an explicit design choice: reuse the
+  user's SSH config rather than have pvectl manage per-node SSH settings.
+- `pvectl ct create` has no `qm create` mirror yet, and still has no raw
+  `lxc.*` config passthrough at create time (e.g. TUN/TAP device rules) —
+  that's a separate, later step: `pvectl ct config append
+  [name-or-vmid] --line "..."` (repeatable `--line`, one or more raw
+  "lxc.subkey: value" lines). This SSHes `cat >> /etc/pve/lxc/<vmid>.conf`
+  on the node (`ssh.AppendRawConfig`, `internal/ssh/ssh.go`) instead of
+  going through `PutConfig`, because Proxmox's REST API does not expose
+  raw `lxc.*` directives at all — confirmed by Proxmox maintainers on the
+  forum, not a pvectl gap — the same reason `ct config edit` can only
+  display (not save) these lines (see above). Lines are written over the SSH
+  command's stdin rather than embedded in the command string, so no
+  shell-quoting is needed for arbitrary raw config text. No digest/
+  concurrency check (unlike `PutConfig`) since it's a raw file append, not
+  a structured field update; changes need a container restart to take
+  effect, same as editing the conf file by hand would. `edit` (`edit.go`/
+  `qm_edit.go`) used to be a bare top-level `ct edit`/`qm edit` until
+  `config append` was added and nested under `ct config`/`qm config` per
+  explicit user request ("pvectl ct edit should be pvectl ct config edit
+  ... same with pvectl qm edit") — `ctConfigCmd`/`qmConfigCmd` are
+  package-level vars (`ct_config.go`/`qm_config.go`) specifically so
+  `edit.go`/`qm_edit.go`'s own `init()` can register into them from a
+  different file. `qmConfigCmd` exists purely to hold `edit` today (no
+  `append` mirror — see above), not because `qm` needs its own config
+  group otherwise.
+- `qm delete` (`cmd/qm_delete.go`) mirrors `ct delete` (`--purge`,
+  `-y`/`--yes`, wired into `qm select`'s action menu) but deliberately has
+  no `--force`: Proxmox's own `DELETE .../qemu/{vmid}` has no
+  force-destroy-while-running param the way `DELETE .../lxc/{vmid}` does
+  (see `api.DeleteVM`'s comment) — a running VM must be stopped first,
+  same as an LXC container deleted without `--force`. `"delete"` is now
+  a leaf in the shared `tui.ActionTree`; both `dispatchAction`/
+  `dispatchVMAction` handle it, so this no longer needs the "qm has no
+  delete yet" caveat that used to keep it out of the menu.
+- The action menu (`internal/tui/menu.go`) is a two-level tree
+  (`tui.ActionTree`), not a flat list — `config`/`snapshots`/`backups` are
+  groups whose children mirror `ct config`/`ct snapshots`/`ct backups`'s
+  own subcommands (`config`: just `edit` — `append` isn't in the menu,
+  since it needs `--line` values the menu has no prompt for); every other
+  action is a root-level leaf. This replaced a flat list that spelled each
+  verb out separately (`edit`/`snapshot`/`snapshots`/`delete-snapshot`/
+  `rollback-snapshot`/`backup`/`backups`/`delete-backup`) per explicit user
+  request ("there should not be snapshot, snapshots, delete-snapshots, but
+  snapshots > create/list/delete" — then, once `ct edit` had already been
+  renamed to `ct config edit`, "edit should be under config no?" caught
+  that the menu's flat `edit` leaf hadn't followed that rename). Leaf
+  `Action` values are unchanged from that old flat list, so
+  `dispatchAction`/`dispatchVMAction` (`cmd/ct.go`/`cmd/qm.go`) needed no
+  changes — `RunActionMenu`'s return contract is exactly the same string
+  set as before, just reached through a group first for
+  `config`/`snapshots`/`backups`. Esc inside a group goes back
+  one level (not cancel); Esc at the root cancels, same as before.
+
+## Conventions
+
+- Prefer `just <recipe>` over raw `go` commands for build/test/vet/fmt so
+  behavior (like `CGO_ENABLED=0`) stays consistent.
+- `--debug` (persistent root flag) logs method/path/status/duration for
+  every Proxmox API call to stderr. Never log the `Authorization` header
+  or request body — preserve this if extending debug logging.
+- Keep `internal/secrets` behind its current interface (`KeyringStore`/
+  `FileStore`/fake) rather than calling the OS keychain directly, so tests
+  can keep substituting an in-memory fake.
+- Error handling: Proxmox's JSON error body is unwrapped into a plain Go
+  error, not a raw HTTP status. A TLS certificate failure produces a
+  specific hint to re-run `pvectl setup --insecure-skip-verify` for
+  self-signed clusters. Missing credentials are checked up front for every
+  command except `setup`, before any network call. SSH-based commands
+  (`ct enter`, `qm enter`) propagate SSH's own exit code and let its error
+  output speak for itself — no custom wrapping.
+- Parent commands never do implicit work — `ctCmd`, `qmCmd`, and
+  `backupsCmd` (under each) have no `RunE` of their own and just print
+  help when run bare. Every action, including listing, is an explicit
+  child subcommand (`ct list`, `ct backups list`, etc.). This was an
+  explicit user preference (`ct`/`qm` used to run the picker+menu flow
+  directly; `backups` used to list by default) — keep new resource types
+  and new backup-like sub-trees consistent with this rather than reverting
+  to a default action on the parent.
+- Creation for a plural sub-tree nests under the group too — `ct/qm
+  snapshots create`, `ct/qm backups create` — there is no bare top-level
+  `ct snapshot`/`ct backup`. These used to be exceptions (creation lived
+  at the top level while list/delete/rollback lived under the plural
+  group) until an explicit user request to fix the inconsistency ("ct
+  snapshot creates a snapshot but everything else is under ct snapshots
+  ... fix this pattern in all commands"). Keep any new plural sub-tree's
+  `create` nested from the start.
+- `list` means a static, non-interactive listing; `select` means the
+  interactive fuzzy-picker (+ action menu, for `ct`/`qm`). These used to
+  be conflated — `ct list`/`qm list` ran the picker+menu flow — per
+  explicit user request ("list commands should simply list resources,
+  whereas select should have the current functionality with searchable
+  items... this reads naturally: 'list my containers', 'select a
+  container'"). Keep this split for any future resource type: a plain
+  `list` table alongside (not instead of) an interactive `select`, not a
+  single command trying to be both.
+- Every `ct`/`qm` action command (`start`/`stop`/`reboot`/`rename`/
+  `snapshots create`/`snapshots list`/`snapshots delete`/
+  `snapshots rollback`/`backups create`/`backups list`/`backups delete`/
+  `config edit`/`config append`/`enter`/`select`) takes an optional
+  `[name-or-vmid]` argument and skips the interactive
+  picker when it's given, resolving through `resolveContainer`/
+  `resolveVM` (`select.go`/`qm_select.go`) instead of calling
+  `selectContainer`/`selectVM` directly. Bare (no-argument) invocation
+  still falls back to the fuzzy picker, unchanged. This started with
+  `migrate` (`<name-or-vmid> --target <node>`, since scripted migration
+  was the actual ask) and was generalized to every other action per
+  explicit user request ("`pvectl ct backup janus` should not open a
+  selector... apply this pattern to all commands") — keep any new `ct`/
+  `qm` action consistent with this: accept the optional identifier via
+  `resolveContainer`/`resolveVM`, don't add a picker-only command.
+  Downstream prompts specific to one action (backup's storage prompt,
+  snapshot's name prompt) are a separate concern this convention doesn't
+  cover — only the guest-selection step is skippable.
+- `ct create` (`cmd/ct_create.go`) is a deliberate exception to the above:
+  there's no existing guest to select, so it takes no `[name-or-vmid]`
+  argument and never calls `resolveContainer`. Every other input
+  (`--node`/`--template`/`--storage`/`--hostname`) instead follows the
+  same flag-first, prompt-if-omitted shape as backup's storage prompt and
+  migrate's target-node prompt — `--node`/`--template` list valid choices
+  with the first shown as the default (`promptChoice` in `cmd/ct_create.go`,
+  same bracket-default styling `migrate.go`'s `promptTargetNode` uses),
+  `--storage` reuses `promptStorage` directly. `--vmid` defaults to
+  Proxmox's next free ID (`Client.NextID`) rather than prompting. It's
+  also LXC-only for now — no `qm create` mirror (see "Known limitations").
+- `ct delete` (`cmd/ct_delete.go`) follows the `[name-or-vmid]`/
+  `resolveContainer` convention normally (unlike `ct create`, it acts on
+  an existing guest), via `newSimpleActionCmd` same as start/stop/backup/
+  snapshot. `delete` is now a `tui.ActionTree` leaf shared with `qm`
+  (see the `qm delete` bullet above — this note used to say it wasn't,
+  back when `qm` had no delete command yet). Where `ct delete` deviates
+  from the rest: its own `-y`/`--yes` + `--purge` flags follow
+  ctBackupsDeleteYes/ctSnapshotsDeleteYes's "only the direct subcommand
+  registers these, so the flag vars stay zero-valued when unused" pattern.
+  Confirmation is the same "type 'yes', no bare 'y', no default-yes"
+  discipline as `backups delete`/`snapshots delete`.
+- Default to direct implementation over planning. When asked to build a
+  feature, make a change, or answer a question, take the concrete action
+  immediately and verify it works — do not write a design spec, launch a
+  slow background research agent, or defer to a CI workflow unless
+  explicitly asked for those. If you truly hit an ambiguous fork, ask one
+  crisp question rather than exploring on your own. For simple factual
+  questions (like config flags), answer directly from your knowledge or a
+  single targeted lookup, not a broad filesystem grep.

@@ -1,0 +1,49 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/davegallant/pvectl/internal/api"
+	"github.com/spf13/cobra"
+)
+
+var storageCmd = &cobra.Command{
+	Use:   "storage",
+	Short: "Show cluster storage usage and health",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := loadClient()
+		if err != nil {
+			return friendlySetupError(err)
+		}
+		return runStorage(client)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(storageCmd)
+}
+
+func runStorage(client *api.Client) error {
+	resources, err := client.ClusterResources(context.Background())
+	if err != nil {
+		return fmt.Errorf("fetching cluster resources: %w", err)
+	}
+	fmt.Print(renderStorageReport(resources.Storage))
+	return nil
+}
+
+// renderStorageReport formats the cluster's storage table plus any
+// capacity warnings from already-fetched data. It performs no I/O, so
+// it's directly unit-testable — same pattern as renderStatus/renderNodes.
+func renderStorageReport(storages []api.StorageResource) string {
+	storage := sortedCollapsedStorage(storages)
+
+	var buf strings.Builder
+	renderStorageTable(&buf, storage)
+	if warnings := renderStorageWarnings(storage); warnings != "" {
+		buf.WriteString("\n" + warnings)
+	}
+	return buf.String()
+}

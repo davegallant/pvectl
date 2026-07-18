@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=jcroql
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - rm -rf dist
+builds:
+  - id: pvectl
+    main: ./cmd/pvectl
+    binary: pvectl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/davegallant/pvectl/cmd.version={{.Version}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  version_template: "{{ .Tag }}"
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+release:
+  github:
+    owner: davegallant
+    name: pvectl
+
+# Check https://goreleaser.com/customization/homebrew/
+# goreleaser 2.16 deprecates `brews` (Formula generation) in favor of
+# `homebrew_casks`, but `release` still publishes a Formula to the tap —
+# only `goreleaser check` errors on it. Kept as `brews` (not casks) to match
+# vpngate and the davegallant/homebrew-public tap, which distributes CLI
+# tools as Formulas (a Cask would force `brew install --cask` and be
+# inconsistent with the rest of the tap).
+brews:
+  - homepage: "https://github.com/davegallant/homebrew-public"
+    description: "CLI for managing a Proxmox VE cluster over the REST API"
+    directory: Formula
+    commit_author:
+      name: davegallant
+      email: davegallant@gmail.com
+    repository:
+      owner: davegallant
+      name: homebrew-public

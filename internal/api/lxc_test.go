@@ -1,0 +1,402 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+)
+
+func TestClientStart(t *testing.T) {
+	var gotPath, gotMethod string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:pve1:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	upid, err := client.Start(context.Background(), "pve1", 101)
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	if upid != "UPID:pve1:..." {
+		t.Errorf("upid = %q, want %q", upid, "UPID:pve1:...")
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want POST", gotMethod)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101/status/start" {
+		t.Errorf("path = %q, want /api2/json/nodes/pve1/lxc/101/status/start", gotPath)
+	}
+}
+
+func TestClientStop(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.Stop(context.Background(), "pve1", 101); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101/status/shutdown" {
+		t.Errorf("path = %q, want .../status/shutdown", gotPath)
+	}
+}
+
+func TestClientReboot(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.Reboot(context.Background(), "pve1", 101); err != nil {
+		t.Fatalf("Reboot() error = %v", err)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101/status/reboot" {
+		t.Errorf("path = %q, want .../status/reboot", gotPath)
+	}
+}
+
+func TestClientSnapshot(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.Snapshot(context.Background(), "pve1", 101, "before-upgrade"); err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if gotBody != "snapname=before-upgrade" {
+		t.Errorf("request body = %q, want snapname=before-upgrade", gotBody)
+	}
+}
+
+func TestCreateContainer(t *testing.T) {
+	var gotPath, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	upid, err := client.CreateContainer(context.Background(), "pve1", CreateContainerParams{
+		VMID:         105,
+		OSTemplate:   "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst",
+		Hostname:     "web01",
+		Storage:      "local-lvm",
+		DiskSizeGB:   8,
+		Cores:        1,
+		MemoryMB:     512,
+		SwapMB:       512,
+		Net0:         "name=eth0,bridge=vmbr0,ip=dhcp",
+		Unprivileged: true,
+		Arch:         "amd64",
+	})
+	if err != nil {
+		t.Fatalf("CreateContainer() error = %v", err)
+	}
+	if upid != "UPID:..." {
+		t.Errorf("CreateContainer() upid = %q", upid)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc" {
+		t.Errorf("path = %q, want /api2/json/nodes/pve1/lxc", gotPath)
+	}
+
+	values, err := url.ParseQuery(gotBody)
+	if err != nil {
+		t.Fatalf("ParseQuery(%q) error = %v", gotBody, err)
+	}
+	want := map[string]string{
+		"vmid":         "105",
+		"ostemplate":   "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst",
+		"hostname":     "web01",
+		"rootfs":       "local-lvm:8",
+		"cores":        "1",
+		"memory":       "512",
+		"swap":         "512",
+		"net0":         "name=eth0,bridge=vmbr0,ip=dhcp",
+		"arch":         "amd64",
+		"unprivileged": "1",
+	}
+	for k, v := range want {
+		if values.Get(k) != v {
+			t.Errorf("body[%q] = %q, want %q", k, values.Get(k), v)
+		}
+	}
+	if values.Has("features") || values.Has("password") || values.Has("ssh-public-keys") {
+		t.Errorf("body = %q, want features/password/ssh-public-keys omitted when empty", gotBody)
+	}
+}
+
+func TestCreateContainerOptionalFields(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.CreateContainer(context.Background(), "pve1", CreateContainerParams{
+		VMID:          105,
+		Unprivileged:  false,
+		Features:      "nesting=1",
+		Password:      "hunter2",
+		SSHPublicKeys: "ssh-ed25519 AAAA...",
+	}); err != nil {
+		t.Fatalf("CreateContainer() error = %v", err)
+	}
+
+	values, err := url.ParseQuery(gotBody)
+	if err != nil {
+		t.Fatalf("ParseQuery(%q) error = %v", gotBody, err)
+	}
+	if values.Has("unprivileged") {
+		t.Errorf("body = %q, want unprivileged omitted when false", gotBody)
+	}
+	if values.Get("features") != "nesting=1" {
+		t.Errorf(`body["features"] = %q, want "nesting=1"`, values.Get("features"))
+	}
+	if values.Get("password") != "hunter2" {
+		t.Errorf(`body["password"] = %q, want "hunter2"`, values.Get("password"))
+	}
+	if values.Get("ssh-public-keys") != "ssh-ed25519 AAAA..." {
+		t.Errorf(`body["ssh-public-keys"] = %q, want the given key`, values.Get("ssh-public-keys"))
+	}
+}
+
+func TestDeleteContainer(t *testing.T) {
+	var gotMethod, gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path + "?" + r.URL.RawQuery
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:pve1:destroy"})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	upid, err := client.DeleteContainer(context.Background(), "pve1", 101, false, false)
+	if err != nil {
+		t.Fatalf("DeleteContainer() error = %v", err)
+	}
+	if upid != "UPID:pve1:destroy" {
+		t.Errorf("DeleteContainer() upid = %q", upid)
+	}
+	if gotMethod != http.MethodDelete {
+		t.Errorf("method = %q, want DELETE", gotMethod)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101?" {
+		t.Errorf("path = %q, want no purge param when purge is false", gotPath)
+	}
+}
+
+func TestDeleteContainerPurge(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path + "?" + r.URL.RawQuery
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:pve1:destroy"})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.DeleteContainer(context.Background(), "pve1", 101, true, false); err != nil {
+		t.Fatalf("DeleteContainer() error = %v", err)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101?purge=1" {
+		t.Errorf("path = %q, want purge=1 query param", gotPath)
+	}
+}
+
+func TestDeleteContainerForce(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path + "?" + r.URL.RawQuery
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:pve1:destroy"})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.DeleteContainer(context.Background(), "pve1", 101, false, true); err != nil {
+		t.Fatalf("DeleteContainer() error = %v", err)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101?force=1" {
+		t.Errorf("path = %q, want force=1 query param", gotPath)
+	}
+}
+
+func TestClientMigrate(t *testing.T) {
+	var gotPath, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.Migrate(context.Background(), "pve1", 101, "pve2", true); err != nil {
+		t.Fatalf("Migrate() error = %v", err)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101/migrate" {
+		t.Errorf("path = %q, want /api2/json/nodes/pve1/lxc/101/migrate", gotPath)
+	}
+	if gotBody != "restart=1&target=pve2" {
+		t.Errorf("request body = %q, want restart=1&target=pve2", gotBody)
+	}
+}
+
+func TestClientMigrateStoppedOmitsRestart(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.Migrate(context.Background(), "pve1", 101, "pve2", false); err != nil {
+		t.Fatalf("Migrate() error = %v", err)
+	}
+	if gotBody != "target=pve2" {
+		t.Errorf("request body = %q, want target=pve2 (no restart param)", gotBody)
+	}
+}
+
+func TestClientGetConfig(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": map[string]any{
+				"hostname": "web01",
+				"cores":    2,
+				"digest":   "abc123",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	cfg, err := client.GetConfig(context.Background(), "pve1", 101)
+	if err != nil {
+		t.Fatalf("GetConfig() error = %v", err)
+	}
+	if cfg.Digest != "abc123" {
+		t.Errorf("Digest = %q, want abc123", cfg.Digest)
+	}
+	if cfg.Fields["hostname"] != "web01" {
+		t.Errorf(`Fields["hostname"] = %q, want "web01"`, cfg.Fields["hostname"])
+	}
+	if cfg.Fields["cores"] != "2" {
+		t.Errorf(`Fields["cores"] = %q, want "2"`, cfg.Fields["cores"])
+	}
+	if _, ok := cfg.Fields["digest"]; ok {
+		t.Error("Fields should not contain the digest key")
+	}
+}
+
+func TestClientGetConfigFormatsRawLXCField(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": map[string]any{
+				"hostname": "forgejo-runner",
+				"digest":   "abc123",
+				"lxc": [][]string{
+					{"lxc.cgroup2.devices.allow", "c 10:200 rwm"},
+					{"lxc.mount.entry", "/dev/net dev/net none bind,create=dir"},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	cfg, err := client.GetConfig(context.Background(), "pve1", 101)
+	if err != nil {
+		t.Fatalf("GetConfig() error = %v", err)
+	}
+
+	if _, ok := cfg.Fields["lxc"]; ok {
+		t.Error(`Fields should not contain a "lxc" key — it must not be diffable/PUT-able`)
+	}
+
+	want := "lxc.cgroup2.devices.allow: c 10:200 rwm\nlxc.mount.entry: /dev/net dev/net none bind,create=dir\n"
+	if cfg.RawLXC != want {
+		t.Errorf("RawLXC = %q, want %q", cfg.RawLXC, want)
+	}
+}
+
+func TestClientGetConfigLargeNumericValue(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Write the raw JSON directly so the numeric literal is exactly
+		// 4194304 (>= 1,000,000), the case that triggers Go's default
+		// float64 scientific-notation formatting via fmt.Sprintf("%v").
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"data":{"hostname":"web01","memory":4194304,"digest":"abc123"}}`)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	cfg, err := client.GetConfig(context.Background(), "pve1", 101)
+	if err != nil {
+		t.Fatalf("GetConfig() error = %v", err)
+	}
+	if strings.Contains(cfg.Fields["memory"], "e+") {
+		t.Errorf(`Fields["memory"] = %q, contains scientific notation`, cfg.Fields["memory"])
+	}
+	if cfg.Fields["memory"] != "4194304" {
+		t.Errorf(`Fields["memory"] = %q, want "4194304"`, cfg.Fields["memory"])
+	}
+}
+
+func TestClientPutConfigDigestMismatch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{"message": "digest mismatch"})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	err := client.PutConfig(context.Background(), "pve1", 101, map[string]string{"hostname": "web02"}, "stale-digest")
+	if !errors.Is(err, ErrDigestMismatch) {
+		t.Errorf("PutConfig() error = %v, want ErrDigestMismatch", err)
+	}
+}
+
+func TestClientPutConfigDigestMismatchStructuredError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"errors": map[string]string{"digest": "detected modified configuration - file changed by other process"},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	err := client.PutConfig(context.Background(), "pve1", 101, map[string]string{"hostname": "web02"}, "stale-digest")
+	if !errors.Is(err, ErrDigestMismatch) {
+		t.Errorf("PutConfig() error = %v, want ErrDigestMismatch", err)
+	}
+}

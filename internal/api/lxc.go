@@ -1,0 +1,187 @@
+package api
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+)
+
+// Start, Stop, Reboot, and Snapshot return the Proxmox task UPID for the
+// triggered action so callers can poll TaskStatus for completion, instead
+// of only firing the request and returning.
+
+func (c *Client) Start(ctx context.Context, node string, vmid int) (string, error) {
+	return c.statusAction(ctx, node, vmid, "start")
+}
+
+func (c *Client) Stop(ctx context.Context, node string, vmid int) (string, error) {
+	return c.statusAction(ctx, node, vmid, "shutdown")
+}
+
+func (c *Client) Reboot(ctx context.Context, node string, vmid int) (string, error) {
+	return c.statusAction(ctx, node, vmid, "reboot")
+}
+
+func (c *Client) statusAction(ctx context.Context, node string, vmid int, action string) (string, error) {
+	return c.postUPID(ctx, fmt.Sprintf("/nodes/%s/lxc/%d/status/%s", node, vmid, action), nil)
+}
+
+// Migrate moves a container from node to target, returning the Proxmox
+// task UPID. restart should be true when the container is currently
+// running — Proxmox's "restart migration" stops it, moves it, and starts
+// it again on target; live migration of a running container isn't
+// reliably available, so this is the standard way to move one that's up.
+// A stopped container needs neither restart nor any equivalent flag.
+func (c *Client) Migrate(ctx context.Context, node string, vmid int, target string, restart bool) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/lxc/%d/migrate", node, vmid)
+	form := url.Values{"target": {target}}
+	if restart {
+		form.Set("restart", "1")
+	}
+	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
+}
+
+// CreateContainerParams holds the pct-create parameters `pvectl ct create`
+// exposes. Unprivileged is sent as "1" only when true — Proxmox treats
+// its absence as privileged, matching pct's own default.
+type CreateContainerParams struct {
+	VMID          int
+	OSTemplate    string
+	Hostname      string
+	Storage       string
+	DiskSizeGB    int
+	Cores         int
+	MemoryMB      int
+	SwapMB        int
+	Net0          string
+	Unprivileged  bool
+	Features      string
+	Arch          string
+	Password      string
+	SSHPublicKeys string
+}
+
+// CreateContainer creates a new LXC container on node, returning the
+// Proxmox task UPID — container creation (unpacking the template) is a
+// background task like start/stop/migrate/snapshot, not an instant call.
+func (c *Client) CreateContainer(ctx context.Context, node string, p CreateContainerParams) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/lxc", node)
+	form := url.Values{
+		"vmid":       {strconv.Itoa(p.VMID)},
+		"ostemplate": {p.OSTemplate},
+		"hostname":   {p.Hostname},
+		"rootfs":     {fmt.Sprintf("%s:%d", p.Storage, p.DiskSizeGB)},
+		"cores":      {strconv.Itoa(p.Cores)},
+		"memory":     {strconv.Itoa(p.MemoryMB)},
+		"swap":       {strconv.Itoa(p.SwapMB)},
+		"net0":       {p.Net0},
+		"arch":       {p.Arch},
+	}
+	if p.Unprivileged {
+		form.Set("unprivileged", "1")
+	}
+	if p.Features != "" {
+		form.Set("features", p.Features)
+	}
+	if p.Password != "" {
+		form.Set("password", p.Password)
+	}
+	if p.SSHPublicKeys != "" {
+		form.Set("ssh-public-keys", p.SSHPublicKeys)
+	}
+	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
+}
+
+func (c *Client) Snapshot(ctx context.Context, node string, vmid int, name string) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/lxc/%d/snapshot", node, vmid)
+	form := url.Values{"snapname": {name}}
+	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
+}
+
+// DeleteContainer permanently destroys a container, returning the Proxmox
+// task UPID — like Migrate/Snapshot, destroying a container (removing its
+// disks, etc.) is a background task, not an instant call. purge also
+// removes the container from backup jobs, replication jobs, HA, and
+// ACLs; without it, those references are left dangling (matching
+// Proxmox's own DELETE .../lxc/{vmid} default). force maps to Proxmox's
+// own `force` param, which destroys the container even while running
+// instead of rejecting the request — Proxmox handles the force-stop
+// itself, so this doesn't need a separate stop-then-delete round trip.
+func (c *Client) DeleteContainer(ctx context.Context, node string, vmid int, purge bool, force bool) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/lxc/%d", node, vmid)
+	params := url.Values{}
+	if purge {
+		params.Set("purge", "1")
+	}
+	if force {
+		params.Set("force", "1")
+	}
+	if len(params) > 0 {
+		path += "?" + params.Encode()
+	}
+	var resp struct {
+		Data string `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodDelete, path, nil, &resp); err != nil {
+		return "", err
+	}
+	return resp.Data, nil
+}
+
+// Config is an LXC container's full configuration, as returned by
+// GET /nodes/{node}/lxc/{vmid}/config.
+type Config struct {
+	Digest string
+	Fields map[string]string
+	// RawLXC holds "lxc.*" passthrough config lines (raw entries with no
+	// dedicated Proxmox API parameter, e.g. cgroup rules, bind mounts),
+	// one "lxc.subkey: value" line per entry in Proxmox's original order.
+	// These can repeat (e.g. multiple lxc.mount.entry lines), so unlike
+	// everything else they can't be represented in Fields (a map with
+	// unique keys). Shown for context in the preview and $EDITOR view;
+	// not currently editable — edits to these lines are not saved back.
+	RawLXC string
+}
+
+func (c *Client) GetConfig(ctx context.Context, node string, vmid int) (Config, error) {
+	var resp struct {
+		Data map[string]any `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/lxc/%d/config", node, vmid), nil, &resp); err != nil {
+		return Config{}, err
+	}
+	digest, fields, rawLXC := configFromData(resp.Data, true)
+	return Config{Digest: digest, Fields: fields, RawLXC: rawLXC}, nil
+}
+
+// renderRawLXC formats the "lxc" config field's array of [key, value]
+// pairs as one "key: value" line per entry, matching the shape of the
+// real /etc/pve/lxc/<vmid>.conf file (each raw lxc.* line on its own).
+func renderRawLXC(v any) string {
+	pairs, ok := v.([]any)
+	if !ok {
+		return fmt.Sprintf("%v\n", v)
+	}
+	var b strings.Builder
+	for _, p := range pairs {
+		pair, ok := p.([]any)
+		if !ok || len(pair) != 2 {
+			fmt.Fprintf(&b, "%v\n", p)
+			continue
+		}
+		fmt.Fprintf(&b, "%v: %v\n", pair[0], pair[1])
+	}
+	return b.String()
+}
+
+func (c *Client) PutConfig(ctx context.Context, node string, vmid int, changed map[string]string, digest string) error {
+	path := fmt.Sprintf("/nodes/%s/lxc/%d/config", node, vmid)
+	form := url.Values{"digest": {digest}}
+	for k, v := range changed {
+		form.Set(k, v)
+	}
+	return classifyPutError(c.do(ctx, http.MethodPut, path, strings.NewReader(form.Encode()), nil))
+}

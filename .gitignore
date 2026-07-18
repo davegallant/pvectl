@@ -1,0 +1,7 @@
+/pvectl
+/result
+/result-*
+.direnv
+dist
+.scratch
+*.cast
