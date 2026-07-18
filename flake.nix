@@ -23,7 +23,7 @@
           name = "pvectl";
           src = ./.;
           subPackages = [ "cmd/pvectl" ];
-          vendorHash = "sha256-TOlUaG3t7bs2iyQS1Hs0eMxeKO2f6Dule6LuNeu7kwM=";
+          vendorHash = "sha256-Ni89B8tPoKosfXgDn7SZYucqmD44D0QtS5VJCsyuLLk=";
           nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.makeWrapper ];
           env.CGO_ENABLED = 0;
           doCheck = false;
