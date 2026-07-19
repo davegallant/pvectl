@@ -9,9 +9,10 @@ import (
 )
 
 var qmEnterCmd = &cobra.Command{
-	Use:   "enter [name-or-vmid]",
-	Short: "Attach to a VM's serial console over SSH",
-	Args:  cobra.MaximumNArgs(1),
+	Use:               "enter [name-or-vmid]",
+	Short:             "Attach to a VM's serial console over SSH",
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeVMNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

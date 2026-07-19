@@ -127,9 +127,10 @@ func printRestartNotice(c api.Container) {
 var ctMigrateTarget string
 
 var ctMigrateCmd = &cobra.Command{
-	Use:   "migrate [name-or-vmid]",
-	Short: "Migrate a container to another node",
-	Args:  cobra.MaximumNArgs(1),
+	Use:               "migrate [name-or-vmid]",
+	Short:             "Migrate a container to another node",
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeContainerNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {
@@ -175,9 +176,10 @@ func runCtMigrate(client *api.Client, args []string, target string) error {
 var qmMigrateTarget string
 
 var qmMigrateCmd = &cobra.Command{
-	Use:   "migrate [name-or-vmid]",
-	Short: "Migrate a VM to another node",
-	Args:  cobra.MaximumNArgs(1),
+	Use:               "migrate [name-or-vmid]",
+	Short:             "Migrate a VM to another node",
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeVMNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

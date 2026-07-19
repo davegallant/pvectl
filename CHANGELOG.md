@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Shell completion (`pvectl completion`) now suggests VM/container names for every `ct`/`qm` command's `[name-or-vmid]` argument, fetched live from the cluster on each Tab press.
+
 ## 0.1.0
 
 - Initial release. `pvectl` talks to the Proxmox VE REST API from any machine (not just the Proxmox host) to fuzzy-find and manage LXC containers (`ct`) and QEMU VMs (`qm`).

@@ -9,9 +9,10 @@ import (
 )
 
 var enterCmd = &cobra.Command{
-	Use:   "enter [name-or-vmid]",
-	Short: "Enter a container's shell over SSH",
-	Args:  cobra.MaximumNArgs(1),
+	Use:               "enter [name-or-vmid]",
+	Short:             "Enter a container's shell over SSH",
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeContainerNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

@@ -363,6 +363,9 @@ These were each found via live debugging against a real Proxmox cluster
   registers these, so the flag vars stay zero-valued when unused" pattern.
   Confirmation is the same "type 'yes', no bare 'y', no default-yes"
   discipline as `backups delete`/`snapshots delete`.
+- Every new feature gets a bullet under `## Unreleased` in `CHANGELOG.md`
+  (create that heading above the latest version if it doesn't exist yet).
+  Bug fixes/internal refactors don't need an entry unless user-visible.
 - Default to direct implementation over planning. When asked to build a
   feature, make a change, or answer a question, take the concrete action
   immediately and verify it works — do not write a design spec, launch a

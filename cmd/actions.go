@@ -214,9 +214,10 @@ func runRollbackSnapshotAction(client *api.Client, c api.Container) error {
 // picker; given none, it falls back to the fuzzy picker as before.
 func newSimpleActionCmd(use, short string, run func(*api.Client, api.Container) error) *cobra.Command {
 	return &cobra.Command{
-		Use:   use + " [name-or-vmid]",
-		Short: short,
-		Args:  cobra.MaximumNArgs(1),
+		Use:               use + " [name-or-vmid]",
+		Short:             short,
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: completeContainerNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := loadClient()
 			if err != nil {

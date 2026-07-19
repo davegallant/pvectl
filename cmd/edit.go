@@ -15,9 +15,10 @@ import (
 )
 
 var editCmd = &cobra.Command{
-	Use:   "edit [name-or-vmid]",
-	Short: "Edit a container's config in $EDITOR",
-	Args:  cobra.MaximumNArgs(1),
+	Use:               "edit [name-or-vmid]",
+	Short:             "Edit a container's config in $EDITOR",
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeContainerNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

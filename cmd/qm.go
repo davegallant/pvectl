@@ -31,10 +31,11 @@ var qmListCmd = &cobra.Command{
 }
 
 var qmSelectCmd = &cobra.Command{
-	Use:   "select [name-or-vmid]",
-	Short: "Pick a VM, then pick an action",
-	Args:  cobra.MaximumNArgs(1),
-	RunE:  runQm,
+	Use:               "select [name-or-vmid]",
+	Short:             "Pick a VM, then pick an action",
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeVMNames,
+	RunE:              runQm,
 }
 
 func init() {

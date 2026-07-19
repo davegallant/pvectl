@@ -31,10 +31,11 @@ var ctListCmd = &cobra.Command{
 }
 
 var ctSelectCmd = &cobra.Command{
-	Use:   "select [name-or-vmid]",
-	Short: "Pick a container, then pick an action",
-	Args:  cobra.MaximumNArgs(1),
-	RunE:  runCt,
+	Use:               "select [name-or-vmid]",
+	Short:             "Pick a container, then pick an action",
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeContainerNames,
+	RunE:              runCt,
 }
 
 func init() {

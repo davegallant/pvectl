@@ -164,9 +164,10 @@ func runRollbackSnapshotVMAction(client *api.Client, v api.VM) error {
 // newSimpleVMActionCmd is newSimpleActionCmd's mirror for QEMU VMs.
 func newSimpleVMActionCmd(use, short string, run func(*api.Client, api.VM) error) *cobra.Command {
 	return &cobra.Command{
-		Use:   use + " [name-or-vmid]",
-		Short: short,
-		Args:  cobra.MaximumNArgs(1),
+		Use:               use + " [name-or-vmid]",
+		Short:             short,
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: completeVMNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := loadClient()
 			if err != nil {
