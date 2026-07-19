@@ -1,7 +1,9 @@
 package ssh
 
 import (
+	"context"
 	"io"
+	"reflect"
 	"testing"
 )
 
@@ -70,5 +72,39 @@ func TestBuildAppendRawConfigCmdArgs(t *testing.T) {
 	want2 := "lxc.cgroup2.devices.allow: c 10:200 rwm\nlxc.mount.entry: /dev/net dev/net none bind,create=dir\n"
 	if string(stdin) != want2 {
 		t.Errorf("stdin = %q, want %q", string(stdin), want2)
+	}
+}
+
+func TestBuildListDirCmdArgs(t *testing.T) {
+	cmd := buildListDirCmd(context.Background(), "pve1", 101, "sub/dir/")
+
+	want := []string{"ssh", "-o", "BatchMode=yes", "pve1", "pct", "exec", "101", "--", "ls", "-1p", "--", "sub/dir/"}
+	if len(cmd.Args) != len(want) {
+		t.Fatalf("Args = %v, want %v", cmd.Args, want)
+	}
+	for i, arg := range want {
+		if cmd.Args[i] != arg {
+			t.Errorf("Args[%d] = %q, want %q", i, cmd.Args[i], arg)
+		}
+	}
+}
+
+func TestParseListDirOutput(t *testing.T) {
+	tests := []struct {
+		name string
+		out  string
+		want []string
+	}{
+		{"empty", "", nil},
+		{"single entry", "docker-compose.yml\n", []string{"docker-compose.yml"}},
+		{"multiple entries with dir marker", "Dockerfile\ndocker-compose.yml\nsubdir/\n", []string{"Dockerfile", "docker-compose.yml", "subdir/"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseListDirOutput([]byte(tt.out))
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseListDirOutput(%q) = %v, want %v", tt.out, got, tt.want)
+			}
+		})
 	}
 }

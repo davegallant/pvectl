@@ -179,7 +179,9 @@ already set this; Windows needs EMS/COM port configuration instead).
 > disconnect without ending the remote session 
 
 For one-off non-interactive commands (`ls`, `cat`, `grep`, ...),
-use `pvectl ct exec <name-or-vmid> -- <command...>`.
+use `pvectl ct exec <name-or-vmid> -- <command...>`. Tab completion for the
+command's own arguments SSHes into the container and lists matching remote
+paths (e.g. `pvectl ct exec <name-or-vmid> -- cat docker-comp<TAB>`).
 
 ### Raw config passthrough
 

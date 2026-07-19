@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -116,4 +117,42 @@ func buildExecCmd(node string, vmid int, command []string) *exec.Cmd {
 // not a pvectl failure.
 func Exec(node string, vmid int, command []string) error {
 	return buildExecCmd(node, vmid, command).Run()
+}
+
+// buildListDirCmd constructs the `ssh -o BatchMode=yes <node> pct exec
+// <vmid> -- ls -1p -- <dir>` command used to drive remote path completion
+// for `ct exec`'s trailing arguments — the same "SSH out and list the
+// remote directory" technique bash-completion's _scp/_rsync functions use
+// for remote path completion. BatchMode=yes disables interactive prompts
+// (password/host-key confirmation), so a stalled auth attempt fails fast
+// instead of hanging the shell's Tab key; -p appends a trailing "/" to
+// directory entries so completions can preserve that distinction locally.
+func buildListDirCmd(ctx context.Context, node string, vmid int, dir string) *exec.Cmd {
+	return exec.CommandContext(ctx, "ssh", "-o", "BatchMode=yes", node, "pct", "exec", fmt.Sprintf("%d", vmid), "--", "ls", "-1p", "--", dir)
+}
+
+// parseListDirOutput splits ls -1p's stdout into entries, dropping the
+// trailing empty line left by ls's final newline. Split out from ListDir
+// so the parsing is unit-testable without a live SSH connection.
+func parseListDirOutput(out []byte) []string {
+	trimmed := strings.TrimRight(string(out), "\n")
+	if trimmed == "" {
+		return nil
+	}
+	return strings.Split(trimmed, "\n")
+}
+
+// ListDir lists dir's immediate entries inside the given container over
+// SSH, for remote path completion. ctx should carry a short deadline —
+// completion must never hang the shell waiting on a stalled or
+// unreachable node. Any failure (timeout, container stopped, dir missing,
+// permission denied) returns nil: completion has no useful way to surface
+// an error to the shell, so a failed listing degrades to "no completions"
+// rather than propagating.
+func ListDir(ctx context.Context, node string, vmid int, dir string) []string {
+	out, err := buildListDirCmd(ctx, node, vmid, dir).Output()
+	if err != nil {
+		return nil
+	}
+	return parseListDirOutput(out)
 }
