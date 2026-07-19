@@ -49,11 +49,13 @@ lint:
 docs:
     go run ./tools/gendocs
 
-# Record an asciinema demo of pvectl via scripts/demo.sh and convert it to a
-# GIF for embedding in the README (requires asciinema and agg on PATH).
-# Builds first so the recording reflects current source.
-demo: build
-    asciinema rec -c ./scripts/demo.sh pvectl-demo.cast --overwrite --window-size 100x24
+# Record an asciinema demo of pvectl interactively and convert it to a GIF
+# for embedding in the README (requires asciinema and agg on PATH). Builds
+# first so the recording reflects current source. Perform the demo actions
+# yourself in the recorded shell, then exit (e.g. Ctrl-D) to stop the
+# recording and automatically convert it to a GIF.
+record-demo: build
+    asciinema rec -c fish pvectl-demo.cast --overwrite --window-size 100x24
     agg pvectl-demo.cast pvectl-demo.gif
 
 # Tag and push a release using the CHANGELOG.md entry as the tag message,
