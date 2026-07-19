@@ -178,6 +178,9 @@ already set this; Windows needs EMS/COM port configuration instead).
 > **Detaching:** type `~.` at the start of a line to
 > disconnect without ending the remote session 
 
+For one-off non-interactive commands (`ls`, `cat`, `grep`, ...),
+use `pvectl ct exec <name-or-vmid> -- <command...>`.
+
 ### Raw config passthrough
 
 Raw `lxc.*` config lines (cgroup device rules, bind mounts, and anything
