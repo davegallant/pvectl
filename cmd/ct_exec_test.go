@@ -61,3 +61,39 @@ func TestExecCandidates(t *testing.T) {
 		})
 	}
 }
+
+func TestNeedsNoSpace(t *testing.T) {
+	tests := []struct {
+		name       string
+		candidates []string
+		want       bool
+	}{
+		{
+			name:       "single complete file, no trailing slash",
+			candidates: []string{"demo3"},
+			want:       false,
+		},
+		{
+			name:       "single directory, trailing slash invites deeper typing",
+			candidates: []string{"sub/"},
+			want:       true,
+		},
+		{
+			name:       "multiple candidates, still ambiguous",
+			candidates: []string{"demo", "demo2"},
+			want:       true,
+		},
+		{
+			name:       "no candidates",
+			candidates: nil,
+			want:       true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := needsNoSpace(tt.candidates); got != tt.want {
+				t.Errorf("needsNoSpace(%v) = %v, want %v", tt.candidates, got, tt.want)
+			}
+		})
+	}
+}

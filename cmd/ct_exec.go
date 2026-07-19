@@ -75,7 +75,12 @@ func completeExecArgs(cmd *cobra.Command, args []string, toComplete string) ([]s
 	defer cancel()
 	entries := ssh.ListDir(ctx, c.Node, c.VMID, listDir)
 
-	return execCandidates(entries, dir, prefix), cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
+	candidates := execCandidates(entries, dir, prefix)
+	directive := cobra.ShellCompDirectiveNoFileComp
+	if needsNoSpace(candidates) {
+		directive |= cobra.ShellCompDirectiveNoSpace
+	}
+	return candidates, directive
 }
 
 // execCandidates filters dir's already-fetched remote entries down to
@@ -91,4 +96,22 @@ func execCandidates(entries []string, dir, prefix string) []string {
 		}
 	}
 	return candidates
+}
+
+// needsNoSpace reports whether completion should suppress the trailing
+// space cobra/the shell would otherwise insert after a completed argument.
+// This is only wanted when the user might keep typing past what was
+// completed, i.e. a directory entry (trailing "/", from ls -1p) that
+// invites a deeper path. A single complete regular-file match doesn't need
+// it, and forcing NoSpace there is actively harmful: cobra's generated
+// fish script reacts to "exactly one candidate + NoSpace" by injecting a
+// decoy candidate with a "." appended (to stop fish auto-inserting the
+// space), and that decoy is a real, selectable entry in fish's completion
+// menu — accepting it silently produces a nonexistent path (e.g. "demo."
+// instead of "demo").
+func needsNoSpace(candidates []string) bool {
+	if len(candidates) != 1 {
+		return true
+	}
+	return strings.HasSuffix(candidates[0], "/")
 }
