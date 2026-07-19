@@ -6,22 +6,23 @@ without leaving your terminal or memorizing a single vmid.
 
 ![pvectl demo](pvectl-demo.gif)
 
-> [!WARNING]
-> **Experimental, provided as-is, with no warranty.** pvectl can start,
-> stop, edit, and permanently delete things on your cluster (including
-> [backups](#backups) and [snapshots](#snapshots)). Review what it's about to do before confirming.
-> Tested only against Proxmox VE 9+; earlier versions may behave
-> differently or not work at all.
-
 ## Why pvectl
 
-- **Unified management.** You don't have to remember what node your hosts are on. Run it on your laptop.
+- **Unified management.** No need to remember what node your hosts are on. Run it on your laptop.
+- **Tab completion.** No need to remember ct or vm ids; tab completion suggests names as you type.
 - **Status polling.** Anything that runs as a background
   Proxmox task (start/stop/reboot/snapshot/backup/migrate) shows a live
   spinner and a final `✓`/`✗` summary with timing.
 - **Secrets stay in your keychain.** `pvectl setup` stores your API token
   secret in the OS keychain, if available.
 - **Use with your coding agent.** Works with your harness of choice.
+
+> [!WARNING]
+> **Experimental, provided as-is, with no warranty.** pvectl can start,
+> stop, edit, and permanently delete things on your cluster (including
+> [backups](#backups) and [snapshots](#snapshots)). Review what it's about to do before confirming.
+> Tested only against Proxmox VE 9+; earlier versions may behave
+> differently or not work at all.
 
 ## Install
 

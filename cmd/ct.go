@@ -12,7 +12,7 @@ import (
 
 var ctCmd = &cobra.Command{
 	Use:   "ct",
-	Short: "A command-line companion for Proxmox",
+	Short: "Manage containers",
 }
 
 var ctListCmd = &cobra.Command{
