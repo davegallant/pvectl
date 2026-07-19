@@ -42,7 +42,7 @@ func TestQmDeleteCommandRegistered(t *testing.T) {
 	}
 }
 
-func TestDispatchActionDelete(t *testing.T) {
+func TestRunDeleteActionSkipsConfirmWhenYesSet(t *testing.T) {
 	var gotPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -61,14 +61,14 @@ func TestDispatchActionDelete(t *testing.T) {
 	c := api.Container{VMID: 101, Name: "web", Node: "pve1"}
 
 	// Setting ctDeleteYes directly (skipping confirmation) is the only
-	// way to exercise dispatchAction's "delete" case without touching
-	// stdin — unlike the snapshot/backup dispatch tests, delete has no
-	// "empty listing" short-circuit to fall back on.
+	// way to exercise runDeleteAction without touching stdin — unlike the
+	// snapshot/backup tests, delete has no "empty listing" short-circuit
+	// to fall back on.
 	ctDeleteYes = true
 	defer func() { ctDeleteYes = false }()
 
-	if err := dispatchAction(client, "delete", c); err != nil {
-		t.Errorf("dispatchAction(delete) error = %v", err)
+	if err := runDeleteAction(client, c); err != nil {
+		t.Errorf("runDeleteAction() error = %v", err)
 	}
 	if gotPath != "/api2/json/nodes/pve1/lxc/101" {
 		t.Errorf("delete path = %q", gotPath)

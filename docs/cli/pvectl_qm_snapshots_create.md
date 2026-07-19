@@ -3,7 +3,7 @@
 Create a snapshot
 
 ```
-pvectl qm snapshots create [name-or-vmid] [flags]
+pvectl qm snapshots create <name-or-vmid> [flags]
 ```
 
 ### Options

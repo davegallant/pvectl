@@ -21,8 +21,6 @@ without leaving your terminal or memorizing a single vmid.
   spinner and a final `✓`/`✗` summary with timing.
 - **Secrets stay in your keychain.** `pvectl setup` stores your API token
   secret in the OS keychain, if available.
-- **Fuzzy finder, not a vmid lookup table.** `pvectl ct select`/`pvectl qm select` let you
-  type a few letters of a name instead of remembering `101` vs `102`.
 - **Use with your coding agent.** Works with your harness of choice.
 
 ## Install

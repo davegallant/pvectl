@@ -5,7 +5,7 @@ Guidance for AI agents (and humans) working in this repo.
 ## What this is
 
 `pvectl` (Proxmox VE control) is a Go CLI that talks to the Proxmox VE
-REST API directly to fuzzy-find and manage Proxmox resources from any
+REST API directly to manage Proxmox resources from any
 machine — not just the Proxmox host. It replaced an earlier 77-line bash
 script that wrapped `pct`/`fzf` and only worked locally on the Proxmox
 host. Resource types live under their own subcommand: `ct` for LXC
@@ -43,13 +43,13 @@ Module path `github.com/davegallant/pvectl`, binary name `pvectl` (built from
   edits are never silently lost.
 - `ct`/`qm` are a deliberate parallel tree, not a shared abstraction —
   trading some duplication for lower risk to the already-shipped, tested
-  `ct` path when `qm` was added: `vm_picker.go` parallels `picker.go`
+  `ct` path when `qm` was added: `qm_select.go` parallels `select.go`
   (sharing only package-level helpers), `qemu.go` parallels `lxc.go` (same
   REST shapes, different paths), and `qm enter` uses `qm terminal` (works
   only with a serial console configured, its own Ctrl-O detach key, hinted
   before attaching — a real UX gap vs. `ct enter`, not something pvectl can
-  paper over). `menu.go` and `internal/editconf` are fully shared, since
-  neither has guest-type-specific coupling. `VMConfig` has no
+  paper over). `internal/editconf` is fully shared, since it has no
+  guest-type-specific coupling. `VMConfig` has no
   `RawLXC`-equivalent field, since flat QEMU configs have nothing to strip
   before diffing.
 - `status` hits two endpoints — `/cluster/resources` (per-node CPU/mem,
@@ -64,11 +64,6 @@ Module path `github.com/davegallant/pvectl`, binary name `pvectl` (built from
   `name@node` — an earlier name-only collapse silently dropped every node
   past the first for non-shared storage, reported by a user as
   `local`/`local-lvm` going missing on a multi-node cluster.
-- Picker preview truncates each field to 200 runes — Proxmox "notes"
-  fields are sometimes filled with large HTML banners that would otherwise
-  swamp the preview. `edit`'s full `$EDITOR` view is always untruncated, so
-  nothing is lost when actually saving.
-
 ## Build/dev commands
 
 Use the `justfile` recipes rather than raw `go` invocations where possible:
@@ -103,8 +98,6 @@ it's not needed on a normal dev machine.
 - `internal/config` / `internal/secrets` — config load/save tested against
   a temp directory; secrets tested via an in-memory fake keyring behind
   the `internal/secrets` interface, never the real OS keychain.
-- `internal/tui` — unit tests cover the model's pure logic (filtering,
-  selection state transitions), not full terminal rendering.
 - `edit`'s temp-file parse/diff logic is unit tested directly as pure
   functions, independent of the actual `$EDITOR` exec call.
 - `internal/ssh` and `$EDITOR` exec calls are integration-level and only
@@ -144,7 +137,7 @@ These were each found via live debugging against a real Proxmox cluster
   anything without a dedicated named Proxmox API parameter) come back
   from Proxmox as a nested array under one `lxc` field. `api.Config.RawLXC`
   renders these as individual `lxc.subkey: value` lines (matching the real
-  conf file) in both the picker preview and the `$EDITOR` view. **They are
+  conf file) in the `$EDITOR` view. **They are
   display-only, not editable** — `applyEdit` strips any `lxc.`-prefixed key
   before diffing so these lines are never sent back to `PutConfig` even if
   present in the edited text. See "Known limitations" below before
@@ -154,11 +147,6 @@ These were each found via live debugging against a real Proxmox cluster
   general SSH behavior, not pvectl-specific — confirmed by reproducing with
   plain `ssh` directly. `internal/ssh` runs `ssh -t <node> pct enter <vmid>`
   to force pty allocation; don't drop the `-t`.
-- **TUI needs alt-screen for real container counts**: with 42+ items, a
-  non-alt-screen TUI reprints into scrollback on every keystroke.
-  `internal/tui` uses `tea.WithAltScreen()` so the whole list redraws
-  cleanly; container rows are column-aligned with status colored by
-  running/stopped/other.
 - **Storage content listing returns numeric fields as JSON strings for
   some storage types** — confirmed on `local-lvm` (LVM-thin):
   `GET /nodes/{node}/storage/{storage}/content`'s `ctime`/`size`/`vmid`
@@ -232,7 +220,7 @@ These were each found via live debugging against a real Proxmox cluster
 - `pvectl ct create` has no `qm create` mirror yet, and still has no raw
   `lxc.*` config passthrough at create time (e.g. TUN/TAP device rules) —
   that's a separate, later step: `pvectl ct config append
-  [name-or-vmid] --line "..."` (repeatable `--line`, one or more raw
+  <name-or-vmid> --line "..."` (repeatable `--line`, one or more raw
   "lxc.subkey: value" lines). This SSHes `cat >> /etc/pve/lxc/<vmid>.conf`
   on the node (`ssh.AppendRawConfig`, `internal/ssh/ssh.go`) instead of
   going through `PutConfig`, because Proxmox's REST API does not expose
@@ -254,32 +242,11 @@ These were each found via live debugging against a real Proxmox cluster
   `append` mirror — see above), not because `qm` needs its own config
   group otherwise.
 - `qm delete` (`cmd/qm_delete.go`) mirrors `ct delete` (`--purge`,
-  `-y`/`--yes`, wired into `qm select`'s action menu) but deliberately has
+  `-y`/`--yes`) but deliberately has
   no `--force`: Proxmox's own `DELETE .../qemu/{vmid}` has no
   force-destroy-while-running param the way `DELETE .../lxc/{vmid}` does
   (see `api.DeleteVM`'s comment) — a running VM must be stopped first,
-  same as an LXC container deleted without `--force`. `"delete"` is now
-  a leaf in the shared `tui.ActionTree`; both `dispatchAction`/
-  `dispatchVMAction` handle it, so this no longer needs the "qm has no
-  delete yet" caveat that used to keep it out of the menu.
-- The action menu (`internal/tui/menu.go`) is a two-level tree
-  (`tui.ActionTree`), not a flat list — `config`/`snapshots`/`backups` are
-  groups whose children mirror `ct config`/`ct snapshots`/`ct backups`'s
-  own subcommands (`config`: just `edit` — `append` isn't in the menu,
-  since it needs `--line` values the menu has no prompt for); every other
-  action is a root-level leaf. This replaced a flat list that spelled each
-  verb out separately (`edit`/`snapshot`/`snapshots`/`delete-snapshot`/
-  `rollback-snapshot`/`backup`/`backups`/`delete-backup`) per explicit user
-  request ("there should not be snapshot, snapshots, delete-snapshots, but
-  snapshots > create/list/delete" — then, once `ct edit` had already been
-  renamed to `ct config edit`, "edit should be under config no?" caught
-  that the menu's flat `edit` leaf hadn't followed that rename). Leaf
-  `Action` values are unchanged from that old flat list, so
-  `dispatchAction`/`dispatchVMAction` (`cmd/ct.go`/`cmd/qm.go`) needed no
-  changes — `RunActionMenu`'s return contract is exactly the same string
-  set as before, just reached through a group first for
-  `config`/`snapshots`/`backups`. Esc inside a group goes back
-  one level (not cancel); Esc at the root cancels, same as before.
+  same as an LXC container deleted without `--force`.
 
 ## Conventions
 
@@ -302,10 +269,9 @@ These were each found via live debugging against a real Proxmox cluster
   `backupsCmd` (under each) have no `RunE` of their own and just print
   help when run bare. Every action, including listing, is an explicit
   child subcommand (`ct list`, `ct backups list`, etc.). This was an
-  explicit user preference (`ct`/`qm` used to run the picker+menu flow
-  directly; `backups` used to list by default) — keep new resource types
-  and new backup-like sub-trees consistent with this rather than reverting
-  to a default action on the parent.
+  explicit user preference (`backups` used to list by default) — keep new
+  resource types and new backup-like sub-trees consistent with this rather
+  than reverting to a default action on the parent.
 - Creation for a plural sub-tree nests under the group too — `ct/qm
   snapshots create`, `ct/qm backups create` — there is no bare top-level
   `ct snapshot`/`ct backup`. These used to be exceptions (creation lived
@@ -314,35 +280,31 @@ These were each found via live debugging against a real Proxmox cluster
   snapshot creates a snapshot but everything else is under ct snapshots
   ... fix this pattern in all commands"). Keep any new plural sub-tree's
   `create` nested from the start.
-- `list` means a static, non-interactive listing; `select` means the
-  interactive fuzzy-picker (+ action menu, for `ct`/`qm`). These used to
-  be conflated — `ct list`/`qm list` ran the picker+menu flow — per
-  explicit user request ("list commands should simply list resources,
-  whereas select should have the current functionality with searchable
-  items... this reads naturally: 'list my containers', 'select a
-  container'"). Keep this split for any future resource type: a plain
-  `list` table alongside (not instead of) an interactive `select`, not a
-  single command trying to be both.
+- `list` means a static, non-interactive listing. `pvectl` is a strict
+  CLI with no full-screen interactive picker or action menu — there used
+  to be one (`ct select`/`qm select`, backed by a bubbletea TUI in
+  `internal/tui`), removed per explicit user request ("no full-screen
+  interactive picker/menu, ever"). Don't reintroduce an interactive
+  picker/menu for any future resource type; a plain `list` table is the
+  only listing form.
 - Every `ct`/`qm` action command (`start`/`stop`/`reboot`/`rename`/
   `snapshots create`/`snapshots list`/`snapshots delete`/
   `snapshots rollback`/`backups create`/`backups list`/`backups delete`/
-  `config edit`/`config append`/`enter`/`select`) takes an optional
-  `[name-or-vmid]` argument and skips the interactive
-  picker when it's given, resolving through `resolveContainer`/
-  `resolveVM` (`select.go`/`qm_select.go`) instead of calling
-  `selectContainer`/`selectVM` directly. Bare (no-argument) invocation
-  still falls back to the fuzzy picker, unchanged. This started with
-  `migrate` (`<name-or-vmid> --target <node>`, since scripted migration
-  was the actual ask) and was generalized to every other action per
-  explicit user request ("`pvectl ct backup janus` should not open a
-  selector... apply this pattern to all commands") — keep any new `ct`/
-  `qm` action consistent with this: accept the optional identifier via
-  `resolveContainer`/`resolveVM`, don't add a picker-only command.
-  Downstream prompts specific to one action (backup's storage prompt,
-  snapshot's name prompt) are a separate concern this convention doesn't
-  cover — only the guest-selection step is skippable.
+  `config edit`/`config append`/`enter`/`migrate`) requires a
+  `<name-or-vmid>` argument (`cobra.ExactArgs(1)`), resolved through
+  `resolveContainer`/`resolveVM` (`select.go`/`qm_select.go`) →
+  `findContainer`/`findVM`. `resolveContainer`/`resolveVM` are kept as
+  their own functions (not inlined at every call site) specifically so
+  one guard protects every caller, including `backups restore`'s
+  non-`--node` branch — keep any new `ct`/`qm` action consistent with
+  this rather than calling `findContainer`/`findVM` directly. `backups
+  restore` is the one exception: it keeps `cobra.MaximumNArgs(1)` since
+  its `--node` disaster-recovery mode legitimately takes zero args (see
+  below). Downstream prompts specific to one action (backup's storage
+  prompt, snapshot's name prompt) are a separate concern this convention
+  doesn't cover.
 - `ct create` (`cmd/ct_create.go`) is a deliberate exception to the above:
-  there's no existing guest to select, so it takes no `[name-or-vmid]`
+  there's no existing guest to act on, so it takes no `<name-or-vmid>`
   argument and never calls `resolveContainer`. Every other input
   (`--node`/`--template`/`--storage`/`--hostname`) instead follows the
   same flag-first, prompt-if-omitted shape as backup's storage prompt and
@@ -352,12 +314,10 @@ These were each found via live debugging against a real Proxmox cluster
   `--storage` reuses `promptStorage` directly. `--vmid` defaults to
   Proxmox's next free ID (`Client.NextID`) rather than prompting. It's
   also LXC-only for now — no `qm create` mirror (see "Known limitations").
-- `ct delete` (`cmd/ct_delete.go`) follows the `[name-or-vmid]`/
+- `ct delete` (`cmd/ct_delete.go`) follows the `<name-or-vmid>`/
   `resolveContainer` convention normally (unlike `ct create`, it acts on
   an existing guest), via `newSimpleActionCmd` same as start/stop/backup/
-  snapshot. `delete` is now a `tui.ActionTree` leaf shared with `qm`
-  (see the `qm delete` bullet above — this note used to say it wasn't,
-  back when `qm` had no delete command yet). Where `ct delete` deviates
+  snapshot. Where `ct delete` deviates
   from the rest: its own `-y`/`--yes` + `--purge` flags follow
   ctBackupsDeleteYes/ctSnapshotsDeleteYes's "only the direct subcommand
   registers these, so the flag vars stay zero-valued when unused" pattern.

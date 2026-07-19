@@ -3,14 +3,12 @@ package cmd
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
 
 	"github.com/davegallant/pvectl/internal/api"
-	"github.com/davegallant/pvectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -87,32 +85,16 @@ func runBackupVM(client *api.Client, v api.VM) error {
 }
 
 // runMigrateVMWithPrompt prompts for a target node interactively, then
-// migrates v — used both by the `qm select` action menu
-// (dispatchVMAction, which already has a VM in hand) and by bare
-// `qm migrate` (runMigrateVMAction, which picks one first). The direct
-// `qm migrate <name-or-vmid> --target <node>` form (qmMigrateCmd in
-// migrate.go) resolves the target some other way and calls runMigrateVM
-// directly instead, so it never touches stdin.
+// migrates v — used by `qm migrate <name-or-vmid>` when no `--target` is
+// given. The direct `qm migrate <name-or-vmid> --target <node>` form
+// (qmMigrateCmd in migrate.go) resolves the target some other way and
+// calls runMigrateVM directly instead, so it never touches stdin.
 func runMigrateVMWithPrompt(client *api.Client, v api.VM) error {
 	target, err := promptTargetNode(client, v.Node)
 	if err != nil {
 		return err
 	}
 	return runMigrateVM(client, v, target)
-}
-
-// runMigrateVMAction is the bare `qm migrate` entry point (no
-// name-or-vmid argument): picks a VM via the fuzzy picker, then
-// delegates to runMigrateVMWithPrompt.
-func runMigrateVMAction(client *api.Client) error {
-	v, err := selectVM(client)
-	if err != nil {
-		if errors.Is(err, tui.ErrCancelled) {
-			return nil
-		}
-		return err
-	}
-	return runMigrateVMWithPrompt(client, v)
 }
 
 func runMigrateVM(client *api.Client, v api.VM, target string) error {
@@ -215,9 +197,6 @@ func runQmBackupsRestore(cmd *cobra.Command, args []string) error {
 
 	v, err := resolveVM(client, args)
 	if err != nil {
-		if errors.Is(err, tui.ErrCancelled) {
-			return nil
-		}
 		return err
 	}
 	return runRestoreBackupVMAction(client, v)
@@ -259,9 +238,9 @@ func runRollbackSnapshotVMAction(client *api.Client, v api.VM) error {
 // newSimpleVMActionCmd is newSimpleActionCmd's mirror for QEMU VMs.
 func newSimpleVMActionCmd(use, short string, run func(*api.Client, api.VM) error) *cobra.Command {
 	return &cobra.Command{
-		Use:               use + " [name-or-vmid]",
+		Use:               use + " <name-or-vmid>",
 		Short:             short,
-		Args:              cobra.MaximumNArgs(1),
+		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeVMNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := loadClient()
@@ -270,9 +249,6 @@ func newSimpleVMActionCmd(use, short string, run func(*api.Client, api.VM) error
 			}
 			v, err := resolveVM(client, args)
 			if err != nil {
-				if errors.Is(err, tui.ErrCancelled) {
-					return nil
-				}
 				return err
 			}
 			return run(client, v)

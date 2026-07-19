@@ -8,21 +8,7 @@ import (
 	"testing"
 
 	"github.com/davegallant/pvectl/internal/api"
-	"github.com/davegallant/pvectl/internal/tui"
 )
-
-// TestActionAnnouncementsCoverActionTree guards against actionAnnouncements
-// drifting out of sync with tui.ActionTree — a leaf action with no entry
-// would silently fall back to printing its raw internal key (e.g.
-// "delete-snapshot" instead of "Deleting a snapshot of") instead of
-// failing loudly.
-func TestActionAnnouncementsCoverActionTree(t *testing.T) {
-	for _, action := range tui.LeafActions() {
-		if _, ok := actionAnnouncements[action]; !ok {
-			t.Errorf("actionAnnouncements is missing an entry for tui.ActionTree leaf %q", action)
-		}
-	}
-}
 
 func TestRunStart(t *testing.T) {
 	var gotPath string

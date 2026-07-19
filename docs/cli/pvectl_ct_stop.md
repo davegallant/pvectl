@@ -3,7 +3,7 @@
 Stop a container
 
 ```
-pvectl ct stop [name-or-vmid] [flags]
+pvectl ct stop <name-or-vmid> [flags]
 ```
 
 ### Options

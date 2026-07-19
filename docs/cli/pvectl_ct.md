@@ -27,7 +27,6 @@ A command-line companion for Proxmox
 * [pvectl ct migrate](pvectl_ct_migrate.md)	 - Migrate a container to another node
 * [pvectl ct reboot](pvectl_ct_reboot.md)	 - Reboot a container
 * [pvectl ct rename](pvectl_ct_rename.md)	 - Rename a container
-* [pvectl ct select](pvectl_ct_select.md)	 - Pick a container, then pick an action
 * [pvectl ct snapshots](pvectl_ct_snapshots.md)	 - Manage a container's snapshots
 * [pvectl ct start](pvectl_ct_start.md)	 - Start a container
 * [pvectl ct stop](pvectl_ct_stop.md)	 - Stop a container

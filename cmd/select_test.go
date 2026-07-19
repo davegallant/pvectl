@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/davegallant/pvectl/internal/api"
@@ -46,6 +47,19 @@ func TestResolveContainerWithUnknownArgErrorsWithoutPicker(t *testing.T) {
 	}
 }
 
+// TestResolveContainerWithNoArgsErrors confirms empty args is now a plain
+// error instead of falling back to the (removed) interactive picker.
+func TestResolveContainerWithNoArgsErrors(t *testing.T) {
+	client := api.NewClient("https://unused.invalid:8006", "user@pve!test", "secret", true)
+	_, err := resolveContainer(client, nil)
+	if err == nil {
+		t.Fatal("resolveContainer(nil) error = nil, want an error")
+	}
+	if !strings.Contains(err.Error(), "a container name or vmid is required") {
+		t.Errorf("resolveContainer(nil) error = %q, want it to mention a required name or vmid", err.Error())
+	}
+}
+
 func TestResolveVMWithArgSkipsPicker(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -75,5 +89,18 @@ func TestResolveVMWithUnknownArgErrorsWithoutPicker(t *testing.T) {
 	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
 	if _, err := resolveVM(client, []string{"nonexistent"}); err == nil {
 		t.Error("resolveVM() error = nil, want an error for an unknown name")
+	}
+}
+
+// TestResolveVMWithNoArgsErrors is TestResolveContainerWithNoArgsErrors's
+// mirror for QEMU VMs.
+func TestResolveVMWithNoArgsErrors(t *testing.T) {
+	client := api.NewClient("https://unused.invalid:8006", "user@pve!test", "secret", true)
+	_, err := resolveVM(client, nil)
+	if err == nil {
+		t.Fatal("resolveVM(nil) error = nil, want an error")
+	}
+	if !strings.Contains(err.Error(), "a VM name or vmid is required") {
+		t.Errorf("resolveVM(nil) error = %q, want it to mention a required name or vmid", err.Error())
 	}
 }

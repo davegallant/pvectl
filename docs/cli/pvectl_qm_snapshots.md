@@ -17,7 +17,7 @@ Manage a VM's snapshots
 
 ### SEE ALSO
 
-* [pvectl qm](pvectl_qm.md)	 - Fuzzy-find and manage QEMU VMs
+* [pvectl qm](pvectl_qm.md)	 - Manage QEMU VMs
 * [pvectl qm snapshots create](pvectl_qm_snapshots_create.md)	 - Create a snapshot
 * [pvectl qm snapshots delete](pvectl_qm_snapshots_delete.md)	 - Delete one of a VM's snapshots
 * [pvectl qm snapshots list](pvectl_qm_snapshots_list.md)	 - List a VM's snapshots

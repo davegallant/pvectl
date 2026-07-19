@@ -144,7 +144,7 @@ func TestRenameCommandsRegistered(t *testing.T) {
 	}
 }
 
-func TestDispatchActionRename(t *testing.T) {
+func TestRunRenameWithNameFlagSet(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -163,12 +163,12 @@ func TestDispatchActionRename(t *testing.T) {
 	ctRenameName = "web02"
 	defer func() { ctRenameName = "" }()
 
-	if err := dispatchAction(client, "rename", c); err != nil {
-		t.Errorf("dispatchAction(rename) error = %v", err)
+	if err := runRename(client, c); err != nil {
+		t.Errorf("runRename() error = %v", err)
 	}
 }
 
-func TestDispatchVMActionRename(t *testing.T) {
+func TestRunRenameVMWithNameFlagSet(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -187,7 +187,7 @@ func TestDispatchVMActionRename(t *testing.T) {
 	qmRenameName = "web02"
 	defer func() { qmRenameName = "" }()
 
-	if err := dispatchVMAction(client, "rename", v); err != nil {
-		t.Errorf("dispatchVMAction(rename) error = %v", err)
+	if err := runRenameVM(client, v); err != nil {
+		t.Errorf("runRenameVM() error = %v", err)
 	}
 }

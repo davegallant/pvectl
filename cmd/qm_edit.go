@@ -10,14 +10,13 @@ import (
 
 	"github.com/davegallant/pvectl/internal/api"
 	"github.com/davegallant/pvectl/internal/editconf"
-	"github.com/davegallant/pvectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
 var qmEditCmd = &cobra.Command{
-	Use:               "edit [name-or-vmid]",
+	Use:               "edit <name-or-vmid>",
 	Short:             "Edit a VM's config in $EDITOR",
-	Args:              cobra.MaximumNArgs(1),
+	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeVMNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
@@ -26,9 +25,6 @@ var qmEditCmd = &cobra.Command{
 		}
 		v, err := resolveVM(client, args)
 		if err != nil {
-			if errors.Is(err, tui.ErrCancelled) {
-				return nil
-			}
 			return err
 		}
 		return runEditVM(client, v.Node, v.VMID)

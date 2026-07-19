@@ -3,7 +3,7 @@
 Append raw lxc.* config lines (e.g. cgroup rules, bind mounts) not exposed by the Proxmox API
 
 ```
-pvectl ct config append [name-or-vmid] [flags]
+pvectl ct config append <name-or-vmid> [flags]
 ```
 
 ### Options

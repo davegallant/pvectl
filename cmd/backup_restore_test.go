@@ -108,18 +108,18 @@ func TestRunRestoreBackupDirectPath(t *testing.T) {
 func TestRunRestoreBackupUnknownVolidRejected(t *testing.T) {
 	restoreCalled := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/api2/json/cluster/resources":
+		switch r.URL.Path {
+		case "/api2/json/cluster/resources":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"data": []map[string]any{{"type": "storage", "node": "pve1", "storage": "local"}},
 			})
-		case r.URL.Path == "/api2/json/nodes/pve1/storage/local/content":
+		case "/api2/json/nodes/pve1/storage/local/content":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"data": []map[string]any{
 					{"volid": "local:backup/vzdump-lxc-101-a.tar.zst", "content": "backup", "vmid": 101, "ctime": 1000, "size": 2},
 				},
 			})
-		case r.URL.Path == "/api2/json/nodes/pve1/lxc":
+		case "/api2/json/nodes/pve1/lxc":
 			restoreCalled = true
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
 		default:

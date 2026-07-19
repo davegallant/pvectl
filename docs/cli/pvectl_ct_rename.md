@@ -3,7 +3,7 @@
 Rename a container
 
 ```
-pvectl ct rename [name-or-vmid] [flags]
+pvectl ct rename <name-or-vmid> [flags]
 ```
 
 ### Options

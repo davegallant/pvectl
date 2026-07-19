@@ -3,7 +3,7 @@
 List a container's snapshots
 
 ```
-pvectl ct snapshots list [name-or-vmid] [flags]
+pvectl ct snapshots list <name-or-vmid> [flags]
 ```
 
 ### Options

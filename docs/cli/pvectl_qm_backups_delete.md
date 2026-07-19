@@ -3,7 +3,7 @@
 Delete one of a VM's backups
 
 ```
-pvectl qm backups delete [name-or-vmid] [flags]
+pvectl qm backups delete <name-or-vmid> [flags]
 ```
 
 ### Options

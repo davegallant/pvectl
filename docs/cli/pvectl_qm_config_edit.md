@@ -3,7 +3,7 @@
 Edit a VM's config in $EDITOR
 
 ```
-pvectl qm config edit [name-or-vmid] [flags]
+pvectl qm config edit <name-or-vmid> [flags]
 ```
 
 ### Options

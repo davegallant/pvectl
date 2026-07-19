@@ -3,7 +3,7 @@
 Create a snapshot
 
 ```
-pvectl ct snapshots create [name-or-vmid] [flags]
+pvectl ct snapshots create <name-or-vmid> [flags]
 ```
 
 ### Options

@@ -11,11 +11,8 @@ import (
 )
 
 // ctDeleteYes/ctDeletePurge/ctDeleteForce back `ct delete`'s `-y`/`--yes`,
-// `--purge`, and `-f`/`--force` flags — set only when the direct
-// `ct delete` subcommand registers them, matching
-// ctBackupsDeleteYes/ctSnapshotsDeleteYes's convention, so the `ct
-// select` menu's delete action (dispatchAction's "delete" case) always
-// goes through the interactive confirmation with purge/force left off.
+// `--purge`, and `-f`/`--force` flags, matching
+// ctBackupsDeleteYes/ctSnapshotsDeleteYes's convention.
 var ctDeleteYes bool
 var ctDeletePurge bool
 var ctDeleteForce bool

@@ -3,7 +3,7 @@
 Permanently delete a container
 
 ```
-pvectl ct delete [name-or-vmid] [flags]
+pvectl ct delete <name-or-vmid> [flags]
 ```
 
 ### Options

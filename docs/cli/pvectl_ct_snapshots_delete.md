@@ -3,7 +3,7 @@
 Delete one of a container's snapshots
 
 ```
-pvectl ct snapshots delete [name-or-vmid] [flags]
+pvectl ct snapshots delete <name-or-vmid> [flags]
 ```
 
 ### Options

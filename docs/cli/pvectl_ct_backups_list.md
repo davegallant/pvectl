@@ -3,7 +3,7 @@
 List a container's backups
 
 ```
-pvectl ct backups list [name-or-vmid] [flags]
+pvectl ct backups list <name-or-vmid> [flags]
 ```
 
 ### Options

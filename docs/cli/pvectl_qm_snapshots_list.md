@@ -3,7 +3,7 @@
 List a VM's snapshots
 
 ```
-pvectl qm snapshots list [name-or-vmid] [flags]
+pvectl qm snapshots list <name-or-vmid> [flags]
 ```
 
 ### Options

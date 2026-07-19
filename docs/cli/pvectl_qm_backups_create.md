@@ -3,7 +3,7 @@
 Create a backup
 
 ```
-pvectl qm backups create [name-or-vmid] [flags]
+pvectl qm backups create <name-or-vmid> [flags]
 ```
 
 ### Options

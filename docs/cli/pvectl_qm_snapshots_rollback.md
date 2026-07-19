@@ -3,7 +3,7 @@
 Roll back a VM to one of its snapshots
 
 ```
-pvectl qm snapshots rollback [name-or-vmid] [flags]
+pvectl qm snapshots rollback <name-or-vmid> [flags]
 ```
 
 ### Options

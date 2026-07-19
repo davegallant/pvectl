@@ -6,28 +6,7 @@ import (
 	"strconv"
 
 	"github.com/davegallant/pvectl/internal/api"
-	"github.com/davegallant/pvectl/internal/editconf"
-	"github.com/davegallant/pvectl/internal/tui"
 )
-
-// selectContainer fetches the container list from the cluster and runs the
-// interactive picker, returning the chosen container.
-func selectContainer(client *api.Client) (api.Container, error) {
-	containers, err := client.ListContainers(context.Background())
-	if err != nil {
-		return api.Container{}, fmt.Errorf("listing containers: %w", err)
-	}
-
-	fetch := func(node string, vmid int) (string, error) {
-		cfg, err := client.GetConfig(context.Background(), node, vmid)
-		if err != nil {
-			return "", err
-		}
-		return editconf.RenderPreview(cfg.Fields) + cfg.RawLXC, nil
-	}
-
-	return tui.RunPicker(containers, fetch)
-}
 
 // findContainer looks up a container by exact vmid or exact name, for
 // commands given a name-or-vmid argument directly instead of using the
@@ -83,15 +62,16 @@ func containerExists(client *api.Client, vmid int) (bool, error) {
 	return false, nil
 }
 
-// resolveContainer returns the container named/vmid'd by args[0] when
-// given, skipping the interactive picker entirely — the shared mechanism
-// behind every `ct` command's "pvectl ct <action> <name-or-vmid>" form
-// (it already knows what was selected, so it shouldn't ask again), first
-// established for `ct migrate` and then extended to every other action.
-// Falls back to the fuzzy picker when args is empty.
+// resolveContainer returns the container named/vmid'd by args[0] — the
+// shared mechanism behind every `ct` command's
+// "pvectl ct <action> <name-or-vmid>" form, first established for
+// `ct migrate` and then extended to every other action. Kept as its own
+// function (rather than inlined to findContainer at every call site) so
+// this one guard protects every caller, including restore's non-`--node`
+// branch.
 func resolveContainer(client *api.Client, args []string) (api.Container, error) {
 	if len(args) == 0 {
-		return selectContainer(client)
+		return api.Container{}, fmt.Errorf("a container name or vmid is required")
 	}
 	return findContainer(client, args[0])
 }

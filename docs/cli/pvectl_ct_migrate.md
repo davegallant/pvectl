@@ -3,14 +3,14 @@
 Migrate a container to another node
 
 ```
-pvectl ct migrate [name-or-vmid] [flags]
+pvectl ct migrate <name-or-vmid> [flags]
 ```
 
 ### Options
 
 ```
   -h, --help            help for migrate
-      --target string   node to migrate to (skips the interactive picker/prompt when set, along with the name-or-vmid argument)
+      --target string   node to migrate to (skips the interactive prompt when set)
 ```
 
 ### Options inherited from parent commands

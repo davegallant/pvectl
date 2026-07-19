@@ -17,7 +17,7 @@ Manage a VM's backups
 
 ### SEE ALSO
 
-* [pvectl qm](pvectl_qm.md)	 - Fuzzy-find and manage QEMU VMs
+* [pvectl qm](pvectl_qm.md)	 - Manage QEMU VMs
 * [pvectl qm backups create](pvectl_qm_backups_create.md)	 - Create a backup
 * [pvectl qm backups delete](pvectl_qm_backups_delete.md)	 - Delete one of a VM's backups
 * [pvectl qm backups list](pvectl_qm_backups_list.md)	 - List a VM's backups

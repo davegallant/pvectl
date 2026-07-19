@@ -3,7 +3,7 @@
 Delete one of a VM's snapshots
 
 ```
-pvectl qm snapshots delete [name-or-vmid] [flags]
+pvectl qm snapshots delete <name-or-vmid> [flags]
 ```
 
 ### Options

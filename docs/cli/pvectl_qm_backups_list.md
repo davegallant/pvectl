@@ -3,7 +3,7 @@
 List a VM's backups
 
 ```
-pvectl qm backups list [name-or-vmid] [flags]
+pvectl qm backups list <name-or-vmid> [flags]
 ```
 
 ### Options

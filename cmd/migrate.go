@@ -127,9 +127,9 @@ func printRestartNotice(c api.Container) {
 var ctMigrateTarget string
 
 var ctMigrateCmd = &cobra.Command{
-	Use:               "migrate [name-or-vmid]",
+	Use:               "migrate <name-or-vmid>",
 	Short:             "Migrate a container to another node",
-	Args:              cobra.MaximumNArgs(1),
+	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeContainerNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
@@ -140,23 +140,14 @@ var ctMigrateCmd = &cobra.Command{
 	},
 }
 
-// runCtMigrate implements ctMigrateCmd's branching: with no argument it
-// falls back to the interactive picker+prompt flow (runMigrateAction).
-// With one, the container is resolved directly; --target then decides
-// whether the node comes from a flag (validated, non-interactive) or
-// the same interactive prompt used by the picker path (runMigrateWith
-// Prompt), so naming a container directly still touches stdin exactly
-// once, for the target node, rather than requiring --target up front.
-// Split out from RunE so it's testable with a fake client, independent
-// of loadClient/config state (matching how dispatchAction/
-// dispatchVMAction are tested directly rather than through their
-// commands' RunE).
+// runCtMigrate implements ctMigrateCmd's branching: the container is
+// resolved directly from args[0]; --target then decides whether the node
+// comes from a flag (validated, non-interactive) or an interactive prompt
+// (runMigrateWithPrompt). Split out from RunE so it's testable with a
+// fake client, independent of loadClient/config state.
 func runCtMigrate(client *api.Client, args []string, target string) error {
 	if len(args) == 0 {
-		if target != "" {
-			return fmt.Errorf("--target requires a container name or vmid argument")
-		}
-		return runMigrateAction(client)
+		return fmt.Errorf("a container name or vmid is required")
 	}
 
 	c, err := findContainer(client, args[0])
@@ -176,9 +167,9 @@ func runCtMigrate(client *api.Client, args []string, target string) error {
 var qmMigrateTarget string
 
 var qmMigrateCmd = &cobra.Command{
-	Use:               "migrate [name-or-vmid]",
+	Use:               "migrate <name-or-vmid>",
 	Short:             "Migrate a VM to another node",
-	Args:              cobra.MaximumNArgs(1),
+	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeVMNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
@@ -192,10 +183,7 @@ var qmMigrateCmd = &cobra.Command{
 // runQmMigrate is runCtMigrate's mirror for QEMU VMs.
 func runQmMigrate(client *api.Client, args []string, target string) error {
 	if len(args) == 0 {
-		if target != "" {
-			return fmt.Errorf("--target requires a VM name or vmid argument")
-		}
-		return runMigrateVMAction(client)
+		return fmt.Errorf("a VM name or vmid is required")
 	}
 
 	v, err := findVM(client, args[0])
@@ -212,10 +200,10 @@ func runQmMigrate(client *api.Client, args []string, target string) error {
 }
 
 func init() {
-	ctMigrateCmd.Flags().StringVar(&ctMigrateTarget, "target", "", "node to migrate to (skips the interactive picker/prompt when set, along with the name-or-vmid argument)")
+	ctMigrateCmd.Flags().StringVar(&ctMigrateTarget, "target", "", "node to migrate to (skips the interactive prompt when set)")
 	ctCmd.AddCommand(ctMigrateCmd)
 
-	qmMigrateCmd.Flags().StringVar(&qmMigrateTarget, "target", "", "node to migrate to (skips the interactive picker/prompt when set, along with the name-or-vmid argument)")
+	qmMigrateCmd.Flags().StringVar(&qmMigrateTarget, "target", "", "node to migrate to (skips the interactive prompt when set)")
 	qmCmd.AddCommand(qmMigrateCmd)
 }
 

@@ -3,7 +3,7 @@
 Roll back a container to one of its snapshots
 
 ```
-pvectl ct snapshots rollback [name-or-vmid] [flags]
+pvectl ct snapshots rollback <name-or-vmid> [flags]
 ```
 
 ### Options

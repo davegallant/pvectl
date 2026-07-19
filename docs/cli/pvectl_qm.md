@@ -1,6 +1,6 @@
 ## pvectl qm
 
-Fuzzy-find and manage QEMU VMs
+Manage QEMU VMs
 
 ### Options
 
@@ -26,7 +26,6 @@ Fuzzy-find and manage QEMU VMs
 * [pvectl qm migrate](pvectl_qm_migrate.md)	 - Migrate a VM to another node
 * [pvectl qm reboot](pvectl_qm_reboot.md)	 - Reboot a VM
 * [pvectl qm rename](pvectl_qm_rename.md)	 - Rename a VM
-* [pvectl qm select](pvectl_qm_select.md)	 - Pick a VM, then pick an action
 * [pvectl qm snapshots](pvectl_qm_snapshots.md)	 - Manage a VM's snapshots
 * [pvectl qm start](pvectl_qm_start.md)	 - Start a VM
 * [pvectl qm stop](pvectl_qm_stop.md)	 - Stop a VM

@@ -3,7 +3,7 @@
 Delete one of a container's backups
 
 ```
-pvectl ct backups delete [name-or-vmid] [flags]
+pvectl ct backups delete <name-or-vmid> [flags]
 ```
 
 ### Options

@@ -28,8 +28,8 @@ func vmNames(vms []api.VM) []string {
 }
 
 // completeContainerNames is the ValidArgsFunction shared by every
-// `ct <verb> [name-or-vmid]` command (wired in via newSimpleActionCmd, plus
-// ct select/edit/enter/migrate). It fetches the live container list on
+// `ct <verb> <name-or-vmid>` command (wired in via newSimpleActionCmd, plus
+// ct edit/enter/migrate). It fetches the live container list on
 // every invocation — no caching, same tradeoff kubectl makes for
 // `kubectl get pod <TAB>` — so completion is always accurate but pays a
 // network round trip per keystroke. Only the first positional arg is

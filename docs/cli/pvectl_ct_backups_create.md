@@ -3,7 +3,7 @@
 Create a backup
 
 ```
-pvectl ct backups create [name-or-vmid] [flags]
+pvectl ct backups create <name-or-vmid> [flags]
 ```
 
 ### Options

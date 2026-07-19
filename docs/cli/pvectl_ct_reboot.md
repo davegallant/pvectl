@@ -3,7 +3,7 @@
 Reboot a container
 
 ```
-pvectl ct reboot [name-or-vmid] [flags]
+pvectl ct reboot <name-or-vmid> [flags]
 ```
 
 ### Options

@@ -3,7 +3,7 @@
 Enter a container's shell over SSH
 
 ```
-pvectl ct enter [name-or-vmid] [flags]
+pvectl ct enter <name-or-vmid> [flags]
 ```
 
 ### Options

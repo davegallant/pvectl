@@ -3,7 +3,7 @@
 Start a container
 
 ```
-pvectl ct start [name-or-vmid] [flags]
+pvectl ct start <name-or-vmid> [flags]
 ```
 
 ### Options

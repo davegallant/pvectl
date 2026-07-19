@@ -175,7 +175,7 @@ func TestNoTopLevelSnapshotOrBackupCommand(t *testing.T) {
 	}
 }
 
-func TestDispatchActionSnapshots(t *testing.T) {
+func TestRunSnapshotsActionNoSnapshots(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{}})
 	}))
@@ -184,12 +184,12 @@ func TestDispatchActionSnapshots(t *testing.T) {
 	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
 	c := api.Container{VMID: 101, Name: "web", Node: "pve1"}
 
-	if err := dispatchAction(client, "snapshots", c); err != nil {
-		t.Errorf("dispatchAction(snapshots) error = %v", err)
+	if err := runSnapshotsAction(client, c); err != nil {
+		t.Errorf("runSnapshotsAction() error = %v", err)
 	}
 }
 
-func TestDispatchVMActionSnapshots(t *testing.T) {
+func TestRunSnapshotsVMActionNoSnapshots(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{}})
 	}))
@@ -198,12 +198,12 @@ func TestDispatchVMActionSnapshots(t *testing.T) {
 	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
 	v := api.VM{VMID: 201, Name: "web", Node: "pve1"}
 
-	if err := dispatchVMAction(client, "snapshots", v); err != nil {
-		t.Errorf("dispatchVMAction(snapshots) error = %v", err)
+	if err := runSnapshotsVMAction(client, v); err != nil {
+		t.Errorf("runSnapshotsVMAction() error = %v", err)
 	}
 }
 
-func TestDispatchActionRollbackSnapshot(t *testing.T) {
+func TestRunRollbackSnapshotActionNoSnapshots(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{}})
 	}))
@@ -212,12 +212,12 @@ func TestDispatchActionRollbackSnapshot(t *testing.T) {
 	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
 	c := api.Container{VMID: 101, Name: "web", Node: "pve1"}
 
-	if err := dispatchAction(client, "rollback-snapshot", c); err != nil {
-		t.Errorf("dispatchAction(rollback-snapshot) error = %v", err)
+	if err := runRollbackSnapshotAction(client, c); err != nil {
+		t.Errorf("runRollbackSnapshotAction() error = %v", err)
 	}
 }
 
-func TestDispatchVMActionRollbackSnapshot(t *testing.T) {
+func TestRunRollbackSnapshotVMActionNoSnapshots(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{}})
 	}))
@@ -226,7 +226,7 @@ func TestDispatchVMActionRollbackSnapshot(t *testing.T) {
 	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
 	v := api.VM{VMID: 201, Name: "web", Node: "pve1"}
 
-	if err := dispatchVMAction(client, "rollback-snapshot", v); err != nil {
-		t.Errorf("dispatchVMAction(rollback-snapshot) error = %v", err)
+	if err := runRollbackSnapshotVMAction(client, v); err != nil {
+		t.Errorf("runRollbackSnapshotVMAction() error = %v", err)
 	}
 }

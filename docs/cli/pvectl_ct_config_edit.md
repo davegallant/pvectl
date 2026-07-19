@@ -3,7 +3,7 @@
 Edit a container's config in $EDITOR
 
 ```
-pvectl ct config edit [name-or-vmid] [flags]
+pvectl ct config edit <name-or-vmid> [flags]
 ```
 
 ### Options

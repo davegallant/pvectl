@@ -14,7 +14,7 @@ CLI for Proxmox VE
 
 * [pvectl ct](pvectl_ct.md)	 - A command-line companion for Proxmox
 * [pvectl nodes](pvectl_nodes.md)	 - List Proxmox cluster nodes
-* [pvectl qm](pvectl_qm.md)	 - Fuzzy-find and manage QEMU VMs
+* [pvectl qm](pvectl_qm.md)	 - Manage QEMU VMs
 * [pvectl setup](pvectl_setup.md)	 - Store Proxmox API credentials
 * [pvectl status](pvectl_status.md)	 - Show a quick Proxmox cluster health summary
 * [pvectl storage](pvectl_storage.md)	 - Show cluster storage usage and health
