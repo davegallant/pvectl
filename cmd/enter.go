@@ -1,13 +1,16 @@
 package cmd
 
 import (
+	"github.com/davegallant/pvectl/internal/api"
 	"github.com/davegallant/pvectl/internal/ssh"
 	"github.com/spf13/cobra"
 )
 
+var enterMethod string
+
 var enterCmd = &cobra.Command{
 	Use:               "enter <name-or-vmid>",
-	Short:             "Enter a container's shell over SSH",
+	Short:             "Enter a container's shell via SSH (see --method for the API alternative)",
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeContainerNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -19,10 +22,11 @@ var enterCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return ssh.Enter(c.Node, c.VMID)
+		return enterConsole(client, c.Node, c.VMID, api.KindContainer, ssh.Enter, enterMethod)
 	},
 }
 
 func init() {
+	enterCmd.Flags().StringVar(&enterMethod, "method", "", `override the configured console method for this run ("ssh" or "api")`)
 	ctCmd.AddCommand(enterCmd)
 }

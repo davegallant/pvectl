@@ -20,6 +20,13 @@ type Config struct {
 	// keychain. Empty is treated as "keyring" for configs written before
 	// this field existed.
 	SecretBackend string `yaml:"secret_backend,omitempty"`
+	// ConsoleMethod controls how `ct enter`/`qm enter` reach a guest's
+	// console. "" or "ssh" (default) shells out to `ssh node pct enter`/
+	// `qm terminal`. "api" opens Proxmox's termproxy websocket directly
+	// using the stored API token, so no SSH access to the node is needed.
+	// Empty is treated as "ssh" for configs written before this field
+	// existed, same pattern as SecretBackend.
+	ConsoleMethod string `yaml:"console_method,omitempty"`
 }
 
 // ErrNotFound is returned by Load when no config file exists yet.

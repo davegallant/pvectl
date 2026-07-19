@@ -38,6 +38,32 @@ func TestPromptWithDefault(t *testing.T) {
 	}
 }
 
+func TestPromptYesNoDefault(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		defaultValue bool
+		want         bool
+	}{
+		{"blank keeps default true", "\n", true, true},
+		{"blank keeps default false", "\n", false, false},
+		{"y overrides default false", "y\n", false, true},
+		{"yes overrides default false", "yes\n", false, true},
+		{"n overrides default true", "n\n", true, false},
+		{"uppercase Y overrides default false", "Y\n", false, true},
+		{"gibberish keeps default", "maybe\n", true, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := bufio.NewReader(strings.NewReader(tt.input))
+			if got := promptYesNoDefault(reader, "label", tt.defaultValue); got != tt.want {
+				t.Errorf("promptYesNoDefault() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRunSetupSuccess(t *testing.T) {
 	orig := config.ConfigDir
 	tmpDir := t.TempDir()
@@ -52,7 +78,7 @@ func TestRunSetupSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := runSetup(server.URL, "user@pve!pvectl", "s3cr3t", true); err != nil {
+	if err := runSetup(server.URL, "user@pve!pvectl", "s3cr3t", true, false); err != nil {
 		t.Fatalf("runSetup() error = %v", err)
 	}
 
@@ -87,7 +113,7 @@ func TestRunSetupInvalidCredentials(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := runSetup(server.URL, "user@pve!pvectl", "wrong", true); err == nil {
+	if err := runSetup(server.URL, "user@pve!pvectl", "wrong", true, false); err == nil {
 		t.Fatal("runSetup() error = nil, want error for invalid credentials")
 	}
 
@@ -120,7 +146,7 @@ func TestRunSetupFallsBackToFileStoreWhenKeyringFails(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := runSetup(server.URL, "user@pve!pvectl", "s3cr3t", true); err != nil {
+	if err := runSetup(server.URL, "user@pve!pvectl", "s3cr3t", true, false); err != nil {
 		t.Fatalf("runSetup() error = %v, want fallback to succeed", err)
 	}
 
@@ -157,7 +183,7 @@ func TestRunSetupFailsWhenKeyringAndFileBothFail(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := runSetup(server.URL, "user@pve!pvectl", "s3cr3t", true); err == nil {
+	if err := runSetup(server.URL, "user@pve!pvectl", "s3cr3t", true, false); err == nil {
 		t.Fatal("runSetup() error = nil, want error when both stores fail")
 	}
 }

@@ -51,3 +51,19 @@ func friendlySetupError(err error) error {
 	}
 	return err
 }
+
+// consoleMethod reports how `ct enter`/`qm enter` should reach a guest's
+// console: "api" if the stored config opted into it at setup time,
+// otherwise "ssh" (the default, and what every config written before this
+// field existed implicitly means). A cheap second config.Load() rather
+// than threading cfg through loadClient()'s many callers.
+func consoleMethod() (string, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return "", err
+	}
+	if cfg.ConsoleMethod == "api" {
+		return "api", nil
+	}
+	return "ssh", nil
+}

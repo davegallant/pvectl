@@ -131,10 +131,19 @@ New LXC containers can be created with `pvectl ct create`.
 
 ### Console access
 
-Console access requires `ssh` access to the node, so it relies on
-your own SSH config/agent rather than credentials stored by `pvectl`.
+`pvectl ct enter` and `pvectl qm enter` reach a guest's console one of two ways:
 
-Setup your SSH config in this format:
+- **`ssh` (default)** — shells out to `ssh <node> pct enter <vmid>` / `ssh
+  <node> qm terminal <vmid>`, so it relies on your own SSH config/agent
+  rather than credentials stored by `pvectl`.
+- **`api`** — opens Proxmox's own console websocket (the same one the web
+  UI's "Console" button uses) directly over your stored API token, no SSH
+  access to the node required. Enable it by answering yes to the
+  console-access prompt in `pvectl setup`, or use it for a single run with
+  `--method api` (or force `--method ssh` even if `api` is your configured
+  default).
+
+If using `ssh`, set up your SSH config in this format:
 
 ```
 Host <node1-name>
@@ -147,12 +156,8 @@ Host <node2-name>
   IdentityFile <path/to/key>
 ```
 
-`pvectl ct enter` falls back to `ssh <node> pct enter <vmid>`, so it relies on
-your own SSH config/agent rather than credentials stored by `pvectl`.
-
-`pvectl qm enter` falls back to `ssh <node> qm terminal <vmid>`, which requires
-the VM to have a serial console device — without one you'll see `unable
-to find a serial interface`. To add one:
+A VM console (either method) requires a serial console device — without
+one you'll see `unable to find a serial interface`. To add one:
 
 ```sh
 qm set <vmid> --serial0 socket
@@ -163,7 +168,16 @@ Then reboot the VM and make sure the guest OS redirects its console to it
 already set this; Windows needs EMS/COM port configuration instead).
 
 > [!NOTE]
-> `qm terminal` is a raw serial passthrough, not a shell. Press **Ctrl-O** to detach 
+> **LXC login prompt on `api`:** SSH's `pct enter` gives a trusted root
+> shell with no login. The `api` method instead attaches to the
+> container's actual console tty — like a physical console — which may
+> show a login prompt. Many templates ship with root's password locked;
+> set one first if you plan to rely on `api` for containers
+> (`pct exec <vmid> -- passwd root`).
+>
+> **Detaching:** type `~.` at the start of a line to
+> disconnect without ending the remote session — this is SSH's own escape
+> convention, and works the same way on both methods. 
 
 ### Raw config passthrough
 

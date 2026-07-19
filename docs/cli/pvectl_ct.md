@@ -22,7 +22,7 @@ Manage containers
 * [pvectl ct config](pvectl_ct_config.md)	 - Manage a container's config
 * [pvectl ct create](pvectl_ct_create.md)	 - Create a new LXC container
 * [pvectl ct delete](pvectl_ct_delete.md)	 - Permanently delete a container
-* [pvectl ct enter](pvectl_ct_enter.md)	 - Enter a container's shell over SSH
+* [pvectl ct enter](pvectl_ct_enter.md)	 - Enter a container's shell via SSH (see --method for the API alternative)
 * [pvectl ct list](pvectl_ct_list.md)	 - List containers
 * [pvectl ct migrate](pvectl_ct_migrate.md)	 - Migrate a container to another node
 * [pvectl ct reboot](pvectl_ct_reboot.md)	 - Reboot a container

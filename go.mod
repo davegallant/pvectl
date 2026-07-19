@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/coder/websocket v1.8.15
 	github.com/spf13/cobra v1.10.2
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/term v0.45.0

@@ -1,6 +1,6 @@
 ## pvectl ct enter
 
-Enter a container's shell over SSH
+Enter a container's shell via SSH (see --method for the API alternative)
 
 ```
 pvectl ct enter <name-or-vmid> [flags]
@@ -9,7 +9,8 @@ pvectl ct enter <name-or-vmid> [flags]
 ### Options
 
 ```
-  -h, --help   help for enter
+  -h, --help            help for enter
+      --method string   override the configured console method for this run ("ssh" or "api")
 ```
 
 ### Options inherited from parent commands
