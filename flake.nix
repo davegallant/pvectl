@@ -56,6 +56,8 @@
               gotools
               golangci-lint
               just
+              asciinema
+              asciinema-agg
             ];
             shellHook = ''
               echo "Welcome to the pvectl dev environment"

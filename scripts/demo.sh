@@ -9,12 +9,6 @@ PROMPT="\033[1;32m$\033[0m "
 
 prompt() { printf '%b' "$PROMPT"; }
 
-# The prompt for the *next* command is printed right after the current
-# command's output, then this function pauses for a beat before typing —
-# matching how a real shell returns to the prompt immediately, with the
-# human pause happening while the prompt is already on screen. Printing the
-# prompt right before typing (with no preceding pause) makes the prompt and
-# the first keystroke land in the same instant, which reads as uncanny.
 type_cmd() {
   local cmd=$1
   sleep 2
@@ -24,10 +18,51 @@ type_cmd() {
   done
   printf '\n'
   sleep 0.4
-  # `|| true`: a real command failing (e.g. a Proxmox-side limitation like a
-  # storage backend that doesn't support snapshots) shouldn't kill the rest
-  # of the recording under `set -e`.
   eval "$cmd" || true
+  prompt
+}
+
+type_tab_complete() {
+  local words=$1
+  local completion=$2
+  local partial="pvectl $words "
+
+  sleep 2
+  for ((i = 0; i < ${#partial}; i++)); do
+    printf '%s' "${partial:$i:1}"
+    sleep 0.03
+  done
+  sleep 0.6
+
+  local candidates
+  candidates=$(pvectl __complete $words "" 2>/dev/null | grep -v '^:')
+  local list_output
+  list_output=$(printf '%s\n' "$candidates" | column)
+  local n_lines
+  n_lines=$(printf '%s\n' "$list_output" | wc -l)
+
+  printf '\n%s\n' "$list_output"
+  sleep 1
+  printf '\033[%dA\r\033[J' "$((n_lines + 1))"
+  prompt
+  printf '%s' "$partial"
+
+  local prefix=""
+  for ((i = 1; i <= ${#completion}; i++)); do
+    prefix=${completion:0:i}
+    if [ "$(grep -c "^${prefix}" <<<"$candidates")" -le 1 ]; then
+      break
+    fi
+  done
+
+  for ((i = 0; i < ${#prefix}; i++)); do
+    printf '%s' "${prefix:$i:1}"
+    sleep 0.05
+  done
+  sleep 0.5
+  printf '%s\n' "${completion:${#prefix}}"
+  sleep 0.4
+  eval "${partial}${completion}" || true
   prompt
 }
 
@@ -35,10 +70,8 @@ clear
 prompt
 type_cmd "pvectl status"
 type_cmd "pvectl nodes"
-type_cmd "pvectl ct list"
-type_cmd "pvectl qm list"
-type_cmd "pvectl ct start gyb"
+type_tab_complete "ct start" "gyb"
 type_cmd "pvectl ct stop gyb"
-type_cmd "pvectl ct snapshots create gyb --snapshot-name test"
-type_cmd "pvectl ct snapshots delete gyb --snapshot-name test -y"
-type_cmd "pvectl storage"
+type_cmd "pvectl ct snapshots create gyb --snapshot-name pvectl-demo"
+type_cmd "pvectl ct snapshots list gyb"
+type_cmd "pvectl ct snapshots delete gyb --snapshot-name pvectl-demo -y"
