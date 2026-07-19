@@ -66,6 +66,23 @@ func findContainer(client *api.Client, identifier string) (api.Container, error)
 	}
 }
 
+// containerExists reports whether vmid is already in use by a container
+// in the cluster — used by disaster-recovery restore to decide whether
+// the target vmid needs the "type yes" overwrite confirmation and
+// force=1, or is genuinely free (no confirmation, like ct create).
+func containerExists(client *api.Client, vmid int) (bool, error) {
+	containers, err := client.ListContainers(context.Background())
+	if err != nil {
+		return false, fmt.Errorf("listing containers: %w", err)
+	}
+	for _, c := range containers {
+		if c.VMID == vmid {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // resolveContainer returns the container named/vmid'd by args[0] when
 // given, skipping the interactive picker entirely — the shared mechanism
 // behind every `ct` command's "pvectl ct <action> <name-or-vmid>" form

@@ -31,6 +31,7 @@ type Backup struct {
 	VolID   string
 	Storage string
 	Node    string
+	VMID    int
 	CTime   int64
 	Size    int64
 	Format  string
@@ -79,6 +80,21 @@ type storageContentResponse struct {
 // server-side type filter has already proven unreliable on a real
 // cluster (see AGENTS.md), so this sticks to the same fetch-then-filter
 // pattern as ListContainers/ListVMs.
+func (c *Client) ListBackups(ctx context.Context, node string, storages []string, vmid int) ([]Backup, error) {
+	return c.listBackups(ctx, node, storages, &vmid)
+}
+
+// ListAllBackups returns every vzdump backup archive found across
+// storages (storage IDs mounted on node), for any vmid, newest first.
+// Unlike ListBackups it isn't scoped to one guest — used for disaster
+// recovery, where the original guest may no longer exist to filter by.
+func (c *Client) ListAllBackups(ctx context.Context, node string, storages []string) ([]Backup, error) {
+	return c.listBackups(ctx, node, storages, nil)
+}
+
+// listBackups is ListBackups/ListAllBackups's shared implementation.
+// vmidFilter nil means "every vmid" (ListAllBackups); non-nil restricts
+// to that one vmid (ListBackups).
 //
 // The per-storage GET /nodes/{node}/storage/{storage}/content calls are
 // mutually independent, so they fan out concurrently: N storages now cost
@@ -89,7 +105,7 @@ type storageContentResponse struct {
 // storage's position so the final merge is deterministic, and the first
 // error (lowest storage index) is returned first — matching the original
 // sequential version's in-order error reporting.
-func (c *Client) ListBackups(ctx context.Context, node string, storages []string, vmid int) ([]Backup, error) {
+func (c *Client) listBackups(ctx context.Context, node string, storages []string, vmidFilter *int) ([]Backup, error) {
 	type result struct {
 		backups []Backup
 		err     error
@@ -107,13 +123,17 @@ func (c *Client) ListBackups(ctx context.Context, node string, storages []string
 				return
 			}
 			for _, e := range resp.Data {
-				if e.Content != "backup" || int(e.VMID) != vmid {
+				if e.Content != "backup" {
+					continue
+				}
+				if vmidFilter != nil && int(e.VMID) != *vmidFilter {
 					continue
 				}
 				results[i].backups = append(results[i].backups, Backup{
 					VolID:   e.VolID,
 					Storage: storage,
 					Node:    node,
+					VMID:    int(e.VMID),
 					CTime:   int64(e.CTime),
 					Size:    int64(e.Size),
 					Format:  e.Format,

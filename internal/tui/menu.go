@@ -48,6 +48,7 @@ var ActionTree = []menuItem{
 		{Label: "create", Action: "backup"},
 		{Label: "list", Action: "backups"},
 		{Label: "delete", Action: "delete-backup"},
+		{Label: "restore", Action: "restore"},
 	}},
 	{Label: "migrate", Action: "migrate"},
 	{Label: "delete", Action: "delete"},

@@ -61,6 +61,20 @@ func findVM(client *api.Client, identifier string) (api.VM, error) {
 	}
 }
 
+// vmExists is containerExists's mirror for QEMU VMs.
+func vmExists(client *api.Client, vmid int) (bool, error) {
+	vms, err := client.ListVMs(context.Background())
+	if err != nil {
+		return false, fmt.Errorf("listing VMs: %w", err)
+	}
+	for _, v := range vms {
+		if v.VMID == vmid {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // resolveVM is resolveContainer's mirror for QEMU VMs.
 func resolveVM(client *api.Client, args []string) (api.VM, error) {
 	if len(args) == 0 {

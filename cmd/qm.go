@@ -128,6 +128,8 @@ func dispatchVMAction(client *api.Client, action string, v api.VM) error {
 		return runBackupsVM(client, v)
 	case "delete-backup":
 		return runDeleteBackupVMAction(client, v)
+	case "restore":
+		return runRestoreBackupVMAction(client, v)
 	case "migrate":
 		return runMigrateVMWithPrompt(client, v)
 	case "delete":

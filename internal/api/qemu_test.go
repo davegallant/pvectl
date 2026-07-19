@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -186,6 +187,72 @@ func TestClientMigrateVMStoppedOmitsOnline(t *testing.T) {
 	}
 	if gotBody != "target=pve2" {
 		t.Errorf("request body = %q, want target=pve2 (no online param)", gotBody)
+	}
+}
+
+func TestRestoreVM(t *testing.T) {
+	var gotPath, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:pve1:restore"})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	upid, err := client.RestoreVM(context.Background(), "pve1", 201, "local:backup/vzdump-qemu-201-2024_01_01.vma.zst", "local-lvm", false)
+	if err != nil {
+		t.Fatalf("RestoreVM() error = %v", err)
+	}
+	if upid != "UPID:pve1:restore" {
+		t.Errorf("RestoreVM() upid = %q", upid)
+	}
+	if gotPath != "/api2/json/nodes/pve1/qemu" {
+		t.Errorf("path = %q, want /api2/json/nodes/pve1/qemu", gotPath)
+	}
+
+	values, err := url.ParseQuery(gotBody)
+	if err != nil {
+		t.Fatalf("ParseQuery(%q) error = %v", gotBody, err)
+	}
+	want := map[string]string{
+		"vmid":    "201",
+		"archive": "local:backup/vzdump-qemu-201-2024_01_01.vma.zst",
+		"storage": "local-lvm",
+	}
+	for k, v := range want {
+		if values.Get(k) != v {
+			t.Errorf("body[%q] = %q, want %q", k, values.Get(k), v)
+		}
+	}
+	if values.Has("force") {
+		t.Errorf("body = %q, want force omitted when false", gotBody)
+	}
+	if values.Has("restore") || values.Has("ostemplate") {
+		t.Errorf("body = %q, want no restore/ostemplate params (LXC-only)", gotBody)
+	}
+}
+
+func TestRestoreVMForce(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.RestoreVM(context.Background(), "pve1", 201, "local:backup/vzdump-qemu-201.vma.zst", "local-lvm", true); err != nil {
+		t.Fatalf("RestoreVM() error = %v", err)
+	}
+	values, err := url.ParseQuery(gotBody)
+	if err != nil {
+		t.Fatalf("ParseQuery(%q) error = %v", gotBody, err)
+	}
+	if values.Get("force") != "1" {
+		t.Errorf(`body["force"] = %q, want "1"`, values.Get("force"))
 	}
 }
 

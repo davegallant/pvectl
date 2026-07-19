@@ -90,13 +90,17 @@ For full usage instructions, see [`the cli docs`](docs/cli/pvectl.md).
 
 ### Backups
 
-Backups can be created, deleted, and listed with `pvectl ct backups` and `pvectl qm backups`.
+Backups can be created, deleted, listed, and restored with `pvectl ct backups` and `pvectl qm backups`.
 
 > [!CAUTION]
 > Proxmox has no trash/undo for a deleted backup — this is permanent. Only
 > a volid that actually appeared in the listing is accepted, so a typo
 > can't reach the delete API. Requires permission to remove content on the
 > target storage (e.g. `Datastore.AllocateSpace`).
+>
+> Restoring onto a vmid that already exists **overwrites its current
+> disk/config** — also permanent, and requires typing `yes` to confirm
+> unless `-y`/`--yes` is given.
 
 ### Migrations
 

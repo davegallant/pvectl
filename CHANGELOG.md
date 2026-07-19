@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `ct backups restore`/`qm backups restore`: restore a container or VM from a backup, either in place (from one of its own backups, always confirmed) or, with `--node`, from any backup found on a node for disaster recovery when the original guest no longer exists (`--vmid` to target a specific/new vmid, `--volid`/`--storage`/`-y` to skip the interactive prompts). Also available from the `ct select`/`qm select` action menu.
 - Shell completion (`pvectl completion`) now suggests VM/container names for every `ct`/`qm` command's `[name-or-vmid]` argument, fetched live from the cluster on each Tab press.
 
 ## 0.1.0

@@ -34,6 +34,7 @@ var actionAnnouncements = map[string]string{
 	"backup":            "Backing up",
 	"backups":           "Listing backups of",
 	"delete-backup":     "Deleting a backup of",
+	"restore":           "Restoring",
 	"migrate":           "Migrating",
 	"delete":            "Deleting",
 }
@@ -196,6 +197,94 @@ func runDeleteBackupAction(client *api.Client, c api.Container) error {
 	return runDeleteBackup(client, c.Node, c.VMID, c.Name, ctBackupsDeleteVolID, ctBackupsDeleteYes)
 }
 
+// ctRestoreVolID/ctRestoreStorage/ctRestoreYes back `ct backups
+// restore`'s `--volid`/`--storage`/`-y`/`--yes` flags, same convention as
+// the backup/snapshot delete flags above — left at their zero values (and
+// the interactive flow left in charge) when the action is reached via the
+// `ct select` menu instead.
+var ctRestoreVolID string
+var ctRestoreStorage string
+var ctRestoreYes bool
+
+// runRestoreBackupAction restores c in place from one of its own
+// backups, resolving the target storage from ctRestoreStorage or an
+// interactive prompt (content-filtered to "rootdir", like ct create's
+// own storage prompt) first.
+func runRestoreBackupAction(client *api.Client, c api.Container) error {
+	storage := ctRestoreStorage
+	if storage == "" {
+		var err error
+		storage, err = promptRootfsStorage(client, c.Node)
+		if err != nil {
+			return err
+		}
+	}
+	return runRestoreBackup(client, c.Node, c.VMID, c.Name, "container", ctRestoreVolID, storage, ctRestoreYes, client.RestoreContainer)
+}
+
+// ctRestoreNode/ctRestoreVMID back `ct backups restore`'s `--node`/
+// `--vmid` flags. --node's presence (not merely being non-empty — see
+// cmd.Flags().Changed in runCtBackupsRestore) is the switch into
+// disaster-recovery mode: restoring from any backup found on that node
+// rather than an existing guest's own backups, for a guest that no
+// longer exists to be resolved via resolveContainer/the fuzzy picker.
+var ctRestoreNode string
+var ctRestoreVMID int
+
+// runCtBackupsRestore is `ct backups restore [name-or-vmid]`'s RunE.
+// Unlike every other simple action it can't use newSimpleActionCmd,
+// since disaster-recovery mode deliberately has no existing guest to
+// resolve — --node's presence branches before resolveContainer is ever
+// called.
+func runCtBackupsRestore(cmd *cobra.Command, args []string) error {
+	nodeMode := cmd.Flags().Changed("node")
+	if nodeMode && len(args) > 0 {
+		return fmt.Errorf("cannot combine a name-or-vmid argument with --node")
+	}
+
+	client, err := loadClient()
+	if err != nil {
+		return friendlySetupError(err)
+	}
+
+	if nodeMode {
+		return runRestoreFromNodeCT(client, ctRestoreNode)
+	}
+
+	c, err := resolveContainer(client, args)
+	if err != nil {
+		if errors.Is(err, tui.ErrCancelled) {
+			return nil
+		}
+		return err
+	}
+	return runRestoreBackupAction(client, c)
+}
+
+// runRestoreFromNodeCT is runCtBackupsRestore's disaster-recovery branch:
+// lists every backup on node, filtered to LXC archives
+// (filterBackupsByGuestType), and restores the chosen one via
+// runRestoreFromNode.
+func runRestoreFromNodeCT(client *api.Client, node string) error {
+	backups, err := fetchAllBackups(client, node)
+	if err != nil {
+		return fmt.Errorf("listing backups on %s: %w", node, err)
+	}
+	backups = filterBackupsByGuestType(backups, "lxc")
+
+	storage := ctRestoreStorage
+	if storage == "" {
+		var err error
+		storage, err = promptRootfsStorage(client, node)
+		if err != nil {
+			return err
+		}
+	}
+
+	return runRestoreFromNode(client, node, "container", backups, ctRestoreVMID, ctRestoreVolID, storage, ctRestoreYes, client.RestoreContainer,
+		func(vmid int) (bool, error) { return containerExists(client, vmid) })
+}
+
 func runSnapshotsAction(client *api.Client, c api.Container) error {
 	return runListSnapshots(client, c.Node, c.VMID, c.Name)
 }
@@ -258,6 +347,21 @@ func init() {
 	ctBackupsDeleteCmd.Flags().StringVar(&ctBackupsDeleteVolID, "volid", "", "backup volid to delete (skips the interactive listing/prompt when set, along with the name-or-vmid argument)")
 	ctBackupsDeleteCmd.Flags().BoolVarP(&ctBackupsDeleteYes, "yes", "y", false, "skip the confirmation prompt")
 	backupsCmd.AddCommand(ctBackupsDeleteCmd)
+
+	ctBackupRestoreCmd := &cobra.Command{
+		Use:               "restore [name-or-vmid]",
+		Short:             "Restore a container from a backup",
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: completeContainerNames,
+		RunE:              runCtBackupsRestore,
+	}
+	ctBackupRestoreCmd.Flags().StringVar(&ctRestoreVolID, "volid", "", "backup volid to restore (skips the interactive listing/prompt when set)")
+	ctBackupRestoreCmd.Flags().StringVar(&ctRestoreStorage, "storage", "", "target storage for the restored container (skips the interactive prompt when set)")
+	ctBackupRestoreCmd.Flags().BoolVarP(&ctRestoreYes, "yes", "y", false, "skip the confirmation prompt")
+	ctBackupRestoreCmd.Flags().StringVar(&ctRestoreNode, "node", "", "restore from any backup on this node instead of an existing container's own backups (disaster recovery — cannot be combined with a name-or-vmid argument)")
+	ctBackupRestoreCmd.Flags().IntVar(&ctRestoreVMID, "vmid", 0, "target vmid for --node mode (default: the vmid recorded in the chosen backup)")
+	backupsCmd.AddCommand(ctBackupRestoreCmd)
+
 	ctCmd.AddCommand(backupsCmd)
 
 	snapshotsCmd := &cobra.Command{

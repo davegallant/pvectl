@@ -95,6 +95,25 @@ func (c *Client) CreateContainer(ctx context.Context, node string, p CreateConta
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }
 
+// RestoreContainer restores archive (a backup volid, as returned by
+// ListBackups/ListAllBackups) onto vmid on node, returning the Proxmox
+// task UPID — restoring (unpacking the archive) is a background task
+// like CreateContainer. force must be true to overwrite a vmid that
+// already exists; Proxmox rejects the restore otherwise.
+func (c *Client) RestoreContainer(ctx context.Context, node string, vmid int, archive, storage string, force bool) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/lxc", node)
+	form := url.Values{
+		"vmid":       {strconv.Itoa(vmid)},
+		"ostemplate": {archive},
+		"restore":    {"1"},
+		"storage":    {storage},
+	}
+	if force {
+		form.Set("force", "1")
+	}
+	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
+}
+
 func (c *Client) Snapshot(ctx context.Context, node string, vmid int, name string) (string, error) {
 	path := fmt.Sprintf("/nodes/%s/lxc/%d/snapshot", node, vmid)
 	form := url.Values{"snapname": {name}}

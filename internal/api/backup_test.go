@@ -158,6 +158,40 @@ func TestListBackupsFansOutConcurrently(t *testing.T) {
 	}
 }
 
+// TestListAllBackupsIncludesEveryVMID confirms ListAllBackups doesn't
+// filter by vmid (unlike ListBackups), and that VMID is populated on each
+// returned Backup.
+func TestListAllBackupsIncludesEveryVMID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api2/json/nodes/pve1/storage/local/content":
+			_ = json.NewEncoder(w).Encode(storageContentResponse{Data: []storageContentEntry{
+				{VolID: "local:backup/vzdump-lxc-101-a", Content: "backup", VMID: 101, CTime: 2000},
+				{VolID: "local:backup/vzdump-qemu-201-a", Content: "backup", VMID: 201, CTime: 1000},
+				{VolID: "local:snippet/x", Content: "snippet", VMID: 101, CTime: 3000}, // wrong content type
+			}})
+		default:
+			t.Errorf("unexpected request path = %q", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	backups, err := client.ListAllBackups(context.Background(), "pve1", []string{"local"})
+	if err != nil {
+		t.Fatalf("ListAllBackups() error = %v", err)
+	}
+	if len(backups) != 2 {
+		t.Fatalf("ListAllBackups() = %d backups, want 2: %+v", len(backups), backups)
+	}
+	if backups[0].VolID != "local:backup/vzdump-lxc-101-a" || backups[0].VMID != 101 {
+		t.Errorf("backups[0] = %+v, want vzdump-lxc-101-a/vmid 101 (newest-first)", backups[0])
+	}
+	if backups[1].VolID != "local:backup/vzdump-qemu-201-a" || backups[1].VMID != 201 {
+		t.Errorf("backups[1] = %+v, want vzdump-qemu-201-a/vmid 201", backups[1])
+	}
+}
+
 func TestListBackupsEmptyStorages(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Errorf("unexpected request with no storages: %q", r.URL.Path)

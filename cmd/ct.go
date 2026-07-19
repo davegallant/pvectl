@@ -131,6 +131,8 @@ func dispatchAction(client *api.Client, action string, c api.Container) error {
 		return runBackups(client, c)
 	case "delete-backup":
 		return runDeleteBackupAction(client, c)
+	case "restore":
+		return runRestoreBackupAction(client, c)
 	case "migrate":
 		return runMigrateWithPrompt(client, c)
 	case "delete":

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -75,6 +76,25 @@ func (c *Client) MigrateVM(ctx context.Context, node string, vmid int, target st
 	form := url.Values{"target": {target}}
 	if online {
 		form.Set("online", "1")
+	}
+	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
+}
+
+// RestoreVM restores archive (a backup volid, as returned by
+// ListBackups/ListAllBackups) onto vmid on node, returning the Proxmox
+// task UPID — mirrors RestoreContainer exactly, except QEMU's restore
+// endpoint takes the archive as `archive` (no `ostemplate`/`restore=1`
+// pair like LXC). force must be true to overwrite a vmid that already
+// exists; Proxmox rejects the restore otherwise.
+func (c *Client) RestoreVM(ctx context.Context, node string, vmid int, archive, storage string, force bool) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/qemu", node)
+	form := url.Values{
+		"vmid":    {strconv.Itoa(vmid)},
+		"archive": {archive},
+		"storage": {storage},
+	}
+	if force {
+		form.Set("force", "1")
 	}
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }

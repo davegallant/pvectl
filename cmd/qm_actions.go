@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/davegallant/pvectl/internal/api"
@@ -149,6 +150,100 @@ func runDeleteBackupVMAction(client *api.Client, v api.VM) error {
 	return runDeleteBackup(client, v.Node, v.VMID, v.Name, qmBackupsDeleteVolID, qmBackupsDeleteYes)
 }
 
+// qmRestoreVolID/qmRestoreStorage/qmRestoreYes are ctRestoreVolID's /
+// ctRestoreStorage's / ctRestoreYes's mirror for QEMU VMs — see their
+// comment.
+var qmRestoreVolID string
+var qmRestoreStorage string
+var qmRestoreYes bool
+
+// promptImagesStorage lists node's storages that support QEMU disk
+// images ("images" content) — restore's mirror of promptRootfsStorage
+// (ct_create.go), which filters on "rootdir" for LXC root filesystems
+// instead.
+func promptImagesStorage(client *api.Client, node string) (string, error) {
+	storages, err := client.ListNodeStorages(context.Background(), node)
+	if err != nil {
+		return "", fmt.Errorf("listing storages on %s: %w", node, err)
+	}
+
+	var names []string
+	for _, s := range storages {
+		if s.SupportsContent("images") {
+			names = append(names, s.Storage)
+		}
+	}
+	sort.Strings(names)
+	return promptChoice("storage", names)
+}
+
+// runRestoreBackupVMAction is runRestoreBackupAction's mirror for QEMU
+// VMs, using promptImagesStorage ("images" content) in place of
+// promptRootfsStorage ("rootdir").
+func runRestoreBackupVMAction(client *api.Client, v api.VM) error {
+	storage := qmRestoreStorage
+	if storage == "" {
+		var err error
+		storage, err = promptImagesStorage(client, v.Node)
+		if err != nil {
+			return err
+		}
+	}
+	return runRestoreBackup(client, v.Node, v.VMID, v.Name, "VM", qmRestoreVolID, storage, qmRestoreYes, client.RestoreVM)
+}
+
+// qmRestoreNode/qmRestoreVMID are ctRestoreNode's/ctRestoreVMID's mirror
+// for QEMU VMs — see their comment.
+var qmRestoreNode string
+var qmRestoreVMID int
+
+// runQmBackupsRestore is runCtBackupsRestore's mirror for QEMU VMs.
+func runQmBackupsRestore(cmd *cobra.Command, args []string) error {
+	nodeMode := cmd.Flags().Changed("node")
+	if nodeMode && len(args) > 0 {
+		return fmt.Errorf("cannot combine a name-or-vmid argument with --node")
+	}
+
+	client, err := loadClient()
+	if err != nil {
+		return friendlySetupError(err)
+	}
+
+	if nodeMode {
+		return runRestoreFromNodeQM(client, qmRestoreNode)
+	}
+
+	v, err := resolveVM(client, args)
+	if err != nil {
+		if errors.Is(err, tui.ErrCancelled) {
+			return nil
+		}
+		return err
+	}
+	return runRestoreBackupVMAction(client, v)
+}
+
+// runRestoreFromNodeQM is runRestoreFromNodeCT's mirror for QEMU VMs.
+func runRestoreFromNodeQM(client *api.Client, node string) error {
+	backups, err := fetchAllBackups(client, node)
+	if err != nil {
+		return fmt.Errorf("listing backups on %s: %w", node, err)
+	}
+	backups = filterBackupsByGuestType(backups, "qemu")
+
+	storage := qmRestoreStorage
+	if storage == "" {
+		var err error
+		storage, err = promptImagesStorage(client, node)
+		if err != nil {
+			return err
+		}
+	}
+
+	return runRestoreFromNode(client, node, "VM", backups, qmRestoreVMID, qmRestoreVolID, storage, qmRestoreYes, client.RestoreVM,
+		func(vmid int) (bool, error) { return vmExists(client, vmid) })
+}
+
 func runSnapshotsVMAction(client *api.Client, v api.VM) error {
 	return runListSnapshotsVM(client, v.Node, v.VMID, v.Name)
 }
@@ -205,6 +300,21 @@ func init() {
 	qmBackupsDeleteCmd.Flags().StringVar(&qmBackupsDeleteVolID, "volid", "", "backup volid to delete (skips the interactive listing/prompt when set, along with the name-or-vmid argument)")
 	qmBackupsDeleteCmd.Flags().BoolVarP(&qmBackupsDeleteYes, "yes", "y", false, "skip the confirmation prompt")
 	backupsCmd.AddCommand(qmBackupsDeleteCmd)
+
+	qmBackupRestoreCmd := &cobra.Command{
+		Use:               "restore [name-or-vmid]",
+		Short:             "Restore a VM from a backup",
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: completeVMNames,
+		RunE:              runQmBackupsRestore,
+	}
+	qmBackupRestoreCmd.Flags().StringVar(&qmRestoreVolID, "volid", "", "backup volid to restore (skips the interactive listing/prompt when set)")
+	qmBackupRestoreCmd.Flags().StringVar(&qmRestoreStorage, "storage", "", "target storage for the restored VM (skips the interactive prompt when set)")
+	qmBackupRestoreCmd.Flags().BoolVarP(&qmRestoreYes, "yes", "y", false, "skip the confirmation prompt")
+	qmBackupRestoreCmd.Flags().StringVar(&qmRestoreNode, "node", "", "restore from any backup on this node instead of an existing VM's own backups (disaster recovery — cannot be combined with a name-or-vmid argument)")
+	qmBackupRestoreCmd.Flags().IntVar(&qmRestoreVMID, "vmid", 0, "target vmid for --node mode (default: the vmid recorded in the chosen backup)")
+	backupsCmd.AddCommand(qmBackupRestoreCmd)
+
 	qmCmd.AddCommand(backupsCmd)
 
 	snapshotsCmd := &cobra.Command{
