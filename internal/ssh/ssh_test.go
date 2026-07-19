@@ -33,6 +33,20 @@ func TestBuildVMCmdArgs(t *testing.T) {
 	}
 }
 
+func TestBuildExecCmdArgs(t *testing.T) {
+	cmd := buildExecCmd("pve1", 101, []string{"ls", "-la"})
+
+	want := []string{"ssh", "pve1", "pct", "exec", "101", "--", "ls", "-la"}
+	if len(cmd.Args) != len(want) {
+		t.Fatalf("Args = %v, want %v", cmd.Args, want)
+	}
+	for i, arg := range want {
+		if cmd.Args[i] != arg {
+			t.Errorf("Args[%d] = %q, want %q", i, cmd.Args[i], arg)
+		}
+	}
+}
+
 func TestBuildAppendRawConfigCmdArgs(t *testing.T) {
 	cmd := buildAppendRawConfigCmd("pve1", 101, []string{
 		"lxc.cgroup2.devices.allow: c 10:200 rwm",

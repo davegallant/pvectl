@@ -93,3 +93,27 @@ func AppendRawConfig(node string, vmid int, lines []string) error {
 	}
 	return nil
 }
+
+// buildExecCmd constructs the `ssh <node> pct exec <vmid> -- <command...>`
+// command, wired to the current process's stdio. Unlike buildCmd (`pct
+// enter`), no `-t` is passed: pct exec doesn't need a pty to run a command
+// and stream its output, and forcing one would corrupt clean output for
+// scripting/piping.
+func buildExecCmd(node string, vmid int, command []string) *exec.Cmd {
+	args := append([]string{node, "pct", "exec", fmt.Sprintf("%d", vmid), "--"}, command...)
+	cmd := exec.Command("ssh", args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd
+}
+
+// Exec runs command inside the given container over SSH, non-interactively,
+// with the current process's stdio wired straight through. It returns the
+// underlying command's exit error as-is (same policy as Enter/EnterVM) —
+// callers should let that propagate to main's exit code, not wrap it. A
+// guest command that exits non-zero (grep, test, false, ...) is expected,
+// not a pvectl failure.
+func Exec(node string, vmid int, command []string) error {
+	return buildExecCmd(node, vmid, command).Run()
+}
