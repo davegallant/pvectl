@@ -17,6 +17,8 @@
 
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
 
+      version = self.shortRev or self.dirtyShortRev or "unknown";
+
       pvectl =
         pkgs:
         pkgs.buildGo125Module {
@@ -27,6 +29,11 @@
           nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.makeWrapper ];
           env.CGO_ENABLED = 0;
           doCheck = false;
+          ldflags = [
+            "-s"
+            "-w"
+            "-X github.com/davegallant/pvectl/cmd.version=${version}"
+          ];
         };
     in
     {
