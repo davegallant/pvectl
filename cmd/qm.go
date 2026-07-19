@@ -16,8 +16,9 @@ var qmCmd = &cobra.Command{
 }
 
 var qmListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List VMs",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List VMs",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

@@ -9,10 +9,9 @@ without leaving your terminal or memorizing a single vmid.
 ## Why pvectl
 
 - **Unified management.** No need to remember what node your hosts are on. Run it on your laptop.
-- **Tab completion.** No need to remember ct or vm ids; tab completion suggests names as you type.
+- **Tab completion.** Suggests VM and container names as you type.
 - **Status polling.** Anything that runs as a background
-  Proxmox task (start/stop/reboot/snapshot/backup/migrate) shows a live
-  spinner and a final `✓`/`✗` summary with timing.
+  Proxmox task  shows a live  spinner and a final `✓`/`✗` summary with timing.
 - **Secrets stay in your keychain.** `pvectl setup` stores your API token
   secret in the OS keychain, if available.
 - **Use with your coding agent.** Works with your harness of choice.
