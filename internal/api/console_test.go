@@ -62,7 +62,7 @@ func TestClientTermproxy(t *testing.T) {
 				if r.Method != http.MethodPost {
 					t.Errorf("request method = %q, want POST", r.Method)
 				}
-				fmt.Fprintf(w, `{"data":{"ticket":"PVEVNC:abc123","port":%s}}`, tt.portJSON)
+				_, _ = fmt.Fprintf(w, `{"data":{"ticket":"PVEVNC:abc123","port":%s}}`, tt.portJSON)
 			}))
 			defer server.Close()
 

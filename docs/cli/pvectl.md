@@ -12,6 +12,7 @@ CLI for Proxmox VE
 
 ### SEE ALSO
 
+* [pvectl config](pvectl_config.md)	 - Manage pvectl's own configuration
 * [pvectl ct](pvectl_ct.md)	 - Manage containers
 * [pvectl nodes](pvectl_nodes.md)	 - List Proxmox cluster nodes
 * [pvectl qm](pvectl_qm.md)	 - Manage QEMU VMs

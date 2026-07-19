@@ -38,8 +38,8 @@ install:
 clean:
     rm -f pvectl dist
 
-# Run vet, test, and build together
-check: vet test build
+# Run vet, lint, test, and build together
+check: vet lint test build
 
 # Run golangci-lint (needs golangci-lint on PATH)
 lint:

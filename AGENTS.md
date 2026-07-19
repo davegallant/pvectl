@@ -75,8 +75,13 @@ Use the `justfile` recipes rather than raw `go` invocations where possible:
 - `just fmt` — `gofmt -l -w .`
 - `just tidy` — `go mod tidy`
 - `just install` — `go install ./cmd/pvectl`
-- `just check` — vet + test + build; run this before considering a change
-  done
+- `just lint` — `golangci-lint run` (needs `golangci-lint` on `PATH`;
+  provided by the Nix dev shell)
+- `just check` — vet + lint + test + build; run this before considering a
+  change done. `go vet`/`go build`/`go test` passing does NOT mean lint
+  passes (e.g. errcheck catches unchecked return values vet misses) — CI
+  (`.github/workflows/golangci-lint.yml`) lints every push/PR to `main`,
+  so a lint failure caught late fails CI, not just review
 - `just docs` — regenerate `docs/cli/` from the command tree; run this
   after adding/changing any command or flag
 - `just clean` — remove build artifacts
