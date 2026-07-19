@@ -136,7 +136,7 @@ New LXC containers can be created with `pvectl ct create`.
 - **`ssh` (default)** — shells out to `ssh <node> pct enter <vmid>` / `ssh
   <node> qm terminal <vmid>`, so it relies on your own SSH config/agent
   rather than credentials stored by `pvectl`.
-- **`api`** — opens Proxmox's own console websocket (the same one the web
+- **`api`** — opens the proxmox console websocket (the same one the web
   UI's "Console" button uses) directly over your stored API token, no SSH
   access to the node required. Enable it by answering yes to the
   console-access prompt in `pvectl setup`, or use it for a single run with
@@ -176,8 +176,7 @@ already set this; Windows needs EMS/COM port configuration instead).
 > (`pct exec <vmid> -- passwd root`).
 >
 > **Detaching:** type `~.` at the start of a line to
-> disconnect without ending the remote session — this is SSH's own escape
-> convention, and works the same way on both methods. 
+> disconnect without ending the remote session 
 
 ### Raw config passthrough
 
