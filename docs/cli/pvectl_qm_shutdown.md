@@ -1,15 +1,15 @@
-## pvectl qm stop
+## pvectl qm shutdown
 
-Stop a VM immediately (hard power-off, no ACPI/guest involvement)
+Gracefully shut down a VM (ACPI shutdown, waits on the guest, times out if it never responds)
 
 ```
-pvectl qm stop <name-or-vmid> [flags]
+pvectl qm shutdown <name-or-vmid> [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for stop
+  -h, --help   help for shutdown
 ```
 
 ### Options inherited from parent commands

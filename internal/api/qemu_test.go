@@ -110,6 +110,23 @@ func TestClientStopVM(t *testing.T) {
 	if _, err := client.StopVM(context.Background(), "pve1", 201); err != nil {
 		t.Fatalf("StopVM() error = %v", err)
 	}
+	if gotPath != "/api2/json/nodes/pve1/qemu/201/status/stop" {
+		t.Errorf("path = %q, want .../status/stop", gotPath)
+	}
+}
+
+func TestClientShutdownVM(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.ShutdownVM(context.Background(), "pve1", 201); err != nil {
+		t.Fatalf("ShutdownVM() error = %v", err)
+	}
 	if gotPath != "/api2/json/nodes/pve1/qemu/201/status/shutdown" {
 		t.Errorf("path = %q, want .../status/shutdown", gotPath)
 	}

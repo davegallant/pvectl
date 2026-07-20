@@ -45,16 +45,27 @@ func (c *Client) ListVMs(ctx context.Context) ([]VM, error) {
 	return vms, nil
 }
 
-// StartVM, StopVM, RebootVM, and SnapshotVM return the Proxmox task UPID
-// for the triggered action so callers can poll TaskStatus for completion,
-// instead of only firing the request and returning — mirrors the LXC side
-// (lxc.go's Start/Stop/Reboot/Snapshot) exactly.
+// StartVM, StopVM, ShutdownVM, RebootVM, and SnapshotVM return the Proxmox
+// task UPID for the triggered action so callers can poll TaskStatus for
+// completion, instead of only firing the request and returning — mirrors
+// the LXC side (lxc.go's Start/Stop/Shutdown/Reboot/Snapshot) exactly.
 
 func (c *Client) StartVM(ctx context.Context, node string, vmid int) (string, error) {
 	return c.statusVMAction(ctx, node, vmid, "start")
 }
 
+// StopVM maps to Proxmox's own `qm stop` / API "stop" action: an immediate
+// hard power-off with no ACPI/guest involvement, same as pulling the plug.
+// Use ShutdownVM for a graceful ACPI shutdown that waits on the guest.
 func (c *Client) StopVM(ctx context.Context, node string, vmid int) (string, error) {
+	return c.statusVMAction(ctx, node, vmid, "stop")
+}
+
+// ShutdownVM maps to Proxmox's own `qm shutdown` / API "shutdown" action: a
+// graceful ACPI shutdown request that waits on the guest OS to power
+// itself off, timing out if nothing (no OS, no ACPI support, unresponsive
+// guest) ever acknowledges it. Use StopVM for an immediate hard power-off.
+func (c *Client) ShutdownVM(ctx context.Context, node string, vmid int) (string, error) {
 	return c.statusVMAction(ctx, node, vmid, "shutdown")
 }
 

@@ -31,6 +31,18 @@ func runStop(client *api.Client, c api.Container) error {
 		fmt.Sprintf("stopped %s (%d)", c.Name, c.VMID))
 }
 
+// runShutdown is runStop's graceful counterpart — see api.Shutdown for the
+// stop-vs-shutdown distinction.
+func runShutdown(client *api.Client, c api.Container) error {
+	upid, err := client.Shutdown(context.Background(), c.Node, c.VMID)
+	if err != nil {
+		return fmt.Errorf("shutting down %s (%d): %w", c.Name, c.VMID, err)
+	}
+	return runProgressAction(client, c.Node, upid,
+		fmt.Sprintf("shutting down %s (%d)", c.Name, c.VMID),
+		fmt.Sprintf("shut down %s (%d)", c.Name, c.VMID))
+}
+
 func runReboot(client *api.Client, c api.Container) error {
 	upid, err := client.Reboot(context.Background(), c.Node, c.VMID)
 	if err != nil {
@@ -253,7 +265,8 @@ func newSimpleActionCmd(use, short string, run func(*api.Client, api.Container) 
 
 func init() {
 	ctCmd.AddCommand(newSimpleActionCmd("start", "Start a container", runStart))
-	ctCmd.AddCommand(newSimpleActionCmd("stop", "Stop a container", runStop))
+	ctCmd.AddCommand(newSimpleActionCmd("stop", "Stop a container immediately (hard power-off, no graceful attempt)", runStop))
+	ctCmd.AddCommand(newSimpleActionCmd("shutdown", "Gracefully shut down a container (waits on the guest, times out if it never responds)", runShutdown))
 	ctCmd.AddCommand(newSimpleActionCmd("reboot", "Reboot a container", runReboot))
 
 	// Every other multi-verb resource (backups, snapshots) nests all of

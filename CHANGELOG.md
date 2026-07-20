@@ -11,6 +11,7 @@
 - `pvectl ct exec`: run a command inside a container non-interactively over SSH (`pvectl ct exec <name-or-vmid> -- <command...>`). Tab completion for the command's own arguments (e.g. `pvectl ct exec <ct> -- cat docker-comp<TAB>`) SSHes into the container to list matching remote paths.
 - Added `pvectl ct summary` and `pvectl qm summary`
 - Added `pvectl qm create`: provision a new QEMU VM, with flags for name, node, storage, disk/memory/cores, network, SCSI controller, OS type, optional ISO install media, and `--start`; prompts interactively for anything not passed as a flag.
+- **BREAKING:** `ct stop`/`qm stop` are now an immediate hard power-off (Proxmox's `"stop"` action) instead of a graceful shutdown — matching what native `pct`/`qm stop` do. The previous graceful behavior is now `ct shutdown`/`qm shutdown` (Proxmox's `"shutdown"` action), which waits on the guest and times out if it never responds.
 
 ## 0.1.0
 

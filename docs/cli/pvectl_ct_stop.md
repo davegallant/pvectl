@@ -1,6 +1,6 @@
 ## pvectl ct stop
 
-Stop a container
+Stop a container immediately (hard power-off, no graceful attempt)
 
 ```
 pvectl ct stop <name-or-vmid> [flags]

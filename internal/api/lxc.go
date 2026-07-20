@@ -9,15 +9,25 @@ import (
 	"strings"
 )
 
-// Start, Stop, Reboot, and Snapshot return the Proxmox task UPID for the
-// triggered action so callers can poll TaskStatus for completion, instead
-// of only firing the request and returning.
+// Start, Stop, Shutdown, Reboot, and Snapshot return the Proxmox task UPID
+// for the triggered action so callers can poll TaskStatus for completion,
+// instead of only firing the request and returning.
 
 func (c *Client) Start(ctx context.Context, node string, vmid int) (string, error) {
 	return c.statusAction(ctx, node, vmid, "start")
 }
 
+// Stop maps to Proxmox's own `pct stop` / API "stop" action: an immediate
+// hard power-off with no graceful attempt, same as pulling the plug. Use
+// Shutdown for a graceful ACPI-style stop that waits on the guest.
 func (c *Client) Stop(ctx context.Context, node string, vmid int) (string, error) {
+	return c.statusAction(ctx, node, vmid, "stop")
+}
+
+// Shutdown maps to Proxmox's own `pct shutdown` / API "shutdown" action: a
+// graceful stop that asks the container's init to exit and waits for it,
+// timing out if it never does. Use Stop for an immediate hard power-off.
+func (c *Client) Shutdown(ctx context.Context, node string, vmid int) (string, error) {
 	return c.statusAction(ctx, node, vmid, "shutdown")
 }
 

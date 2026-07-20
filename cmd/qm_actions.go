@@ -32,6 +32,18 @@ func runStopVM(client *api.Client, v api.VM) error {
 		fmt.Sprintf("stopped %s (%d)", v.Name, v.VMID))
 }
 
+// runShutdownVM is runStopVM's graceful counterpart — see api.ShutdownVM
+// for the stop-vs-shutdown distinction.
+func runShutdownVM(client *api.Client, v api.VM) error {
+	upid, err := client.ShutdownVM(context.Background(), v.Node, v.VMID)
+	if err != nil {
+		return fmt.Errorf("shutting down %s (%d): %w", v.Name, v.VMID, err)
+	}
+	return runProgressAction(client, v.Node, upid,
+		fmt.Sprintf("shutting down %s (%d)", v.Name, v.VMID),
+		fmt.Sprintf("shut down %s (%d)", v.Name, v.VMID))
+}
+
 func runRebootVM(client *api.Client, v api.VM) error {
 	upid, err := client.RebootVM(context.Background(), v.Node, v.VMID)
 	if err != nil {
@@ -258,7 +270,8 @@ func newSimpleVMActionCmd(use, short string, run func(*api.Client, api.VM) error
 
 func init() {
 	qmCmd.AddCommand(newSimpleVMActionCmd("start", "Start a VM", runStartVM))
-	qmCmd.AddCommand(newSimpleVMActionCmd("stop", "Stop a VM", runStopVM))
+	qmCmd.AddCommand(newSimpleVMActionCmd("stop", "Stop a VM immediately (hard power-off, no ACPI/guest involvement)", runStopVM))
+	qmCmd.AddCommand(newSimpleVMActionCmd("shutdown", "Gracefully shut down a VM (ACPI shutdown, waits on the guest, times out if it never responds)", runShutdownVM))
 	qmCmd.AddCommand(newSimpleVMActionCmd("reboot", "Reboot a VM", runRebootVM))
 
 	// Mirrors actions.go's ct registration — no top-level `qm backup`/

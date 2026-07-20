@@ -291,7 +291,16 @@ These were each found via live debugging against a real Proxmox cluster
   interactive picker/menu, ever"). Don't reintroduce an interactive
   picker/menu for any future resource type; a plain `list` table is the
   only listing form.
-- Every `ct`/`qm` action command (`start`/`stop`/`reboot`/`rename`/
+- `stop` and `shutdown` are separate commands on both `ct` and `qm`,
+  matching Proxmox's own `pct`/`qm` CLI split: `stop` (`api.Stop`/
+  `api.StopVM`, API action `"stop"`) is an immediate hard power-off with no
+  guest involvement; `shutdown` (`api.Shutdown`/`api.ShutdownVM`, API
+  action `"shutdown"`) is graceful and waits on the guest, timing out if
+  nothing acknowledges it (no OS, no ACPI support, unresponsive guest —
+  common for a freshly-`qm create`d VM). Before this split, `stop` called
+  the `"shutdown"` action, so a non-responsive guest's `stop` would hang
+  and time out with no hard-power-off alternative in pvectl.
+- Every `ct`/`qm` action command (`start`/`stop`/`shutdown`/`reboot`/`rename`/
   `snapshots create`/`snapshots list`/`snapshots delete`/
   `snapshots rollback`/`backups create`/`backups list`/`backups delete`/
   `config edit`/`config append`/`enter`/`migrate`) requires a
