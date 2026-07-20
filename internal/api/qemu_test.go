@@ -207,6 +207,36 @@ func TestClientMigrateVMStoppedOmitsOnline(t *testing.T) {
 	}
 }
 
+func TestClientResizeVM(t *testing.T) {
+	var gotPath, gotMethod, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": nil})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if err := client.ResizeVM(context.Background(), "pve1", 201, "scsi0", "+2G"); err != nil {
+		t.Fatalf("ResizeVM() error = %v", err)
+	}
+	if gotMethod != http.MethodPut {
+		t.Errorf("method = %q, want PUT", gotMethod)
+	}
+	if gotPath != "/api2/json/nodes/pve1/qemu/201/resize" {
+		t.Errorf("path = %q, want .../qemu/201/resize", gotPath)
+	}
+	form, err := url.ParseQuery(gotBody)
+	if err != nil {
+		t.Fatalf("ParseQuery(%q) error = %v", gotBody, err)
+	}
+	if form.Get("disk") != "scsi0" || form.Get("size") != "+2G" {
+		t.Errorf("form = %q, want disk=scsi0&size=%%2B2G", gotBody)
+	}
+}
+
 func TestCreateVM(t *testing.T) {
 	var gotPath, gotBody string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

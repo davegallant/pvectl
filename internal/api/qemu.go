@@ -155,6 +155,19 @@ func (c *Client) RestoreVM(ctx context.Context, node string, vmid int, archive, 
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }
 
+// ResizeVM grows disk (e.g. "scsi0", "virtio0") on vmid — like `qm resize`,
+// this only grows a disk, it can't shrink one. size takes Proxmox's own
+// size syntax: a "+"-prefixed delta (e.g. "+2G") to grow by that amount, or
+// a bare absolute size (e.g. "10G") to set the new total size directly.
+// Unlike ResizeContainer, Proxmox applies this synchronously and returns no
+// task UPID (it just extends the underlying disk image), so this returns
+// only an error — same shape as PutVMConfig.
+func (c *Client) ResizeVM(ctx context.Context, node string, vmid int, disk, size string) error {
+	path := fmt.Sprintf("/nodes/%s/qemu/%d/resize", node, vmid)
+	form := url.Values{"disk": {disk}, "size": {size}}
+	return c.do(ctx, http.MethodPut, path, strings.NewReader(form.Encode()), nil)
+}
+
 func (c *Client) SnapshotVM(ctx context.Context, node string, vmid int, name string) (string, error) {
 	path := fmt.Sprintf("/nodes/%s/qemu/%d/snapshot", node, vmid)
 	form := url.Values{"snapname": {name}}

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added `pvectl ct resize`: grow a container disk (e.g. `pvectl ct resize myct --size +2G` to grow the rootfs)
+- Added `pvectl qm resize`: grow a VM disk (e.g. `pvectl qm resize myvm --size +2G` to grow scsi0)
 
 ## 0.2.0
 

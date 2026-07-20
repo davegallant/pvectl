@@ -54,6 +54,27 @@ func runRebootVM(client *api.Client, v api.VM) error {
 		fmt.Sprintf("rebooted %s (%d)", v.Name, v.VMID))
 }
 
+// qmResizeDisk/qmResizeSize are ctResizeDisk's/ctResizeSize's mirror for
+// QEMU VMs — see their comment.
+var qmResizeDisk string
+var qmResizeSize string
+
+// runResizeVM is runResize's mirror for QEMU VMs. Unlike every other verb
+// here, Proxmox applies a VM resize synchronously (see api.ResizeVM), so
+// there's no task UPID to hand to runProgressAction — just print success
+// directly.
+func runResizeVM(client *api.Client, v api.VM) error {
+	if qmResizeSize == "" {
+		return fmt.Errorf("--size is required (e.g. +2G to grow by 2GB, or 10G to set the total size)")
+	}
+
+	if err := client.ResizeVM(context.Background(), v.Node, v.VMID, qmResizeDisk, qmResizeSize); err != nil {
+		return fmt.Errorf("resizing %s (%d) disk %s: %w", v.Name, v.VMID, qmResizeDisk, err)
+	}
+	fmt.Printf("resized %s (%d) disk %s to %s\n", v.Name, v.VMID, qmResizeDisk, qmResizeSize)
+	return nil
+}
+
 // qmSnapshotName is ctSnapshotName's mirror for QEMU VMs — see its comment.
 var qmSnapshotName string
 
@@ -273,6 +294,11 @@ func init() {
 	qmCmd.AddCommand(newSimpleVMActionCmd("stop", "Stop a VM immediately (hard power-off, no ACPI/guest involvement)", runStopVM))
 	qmCmd.AddCommand(newSimpleVMActionCmd("shutdown", "Gracefully shut down a VM (ACPI shutdown, waits on the guest, times out if it never responds)", runShutdownVM))
 	qmCmd.AddCommand(newSimpleVMActionCmd("reboot", "Reboot a VM", runRebootVM))
+
+	qmResizeCmd := newSimpleVMActionCmd("resize", "Grow a VM disk (cannot shrink)", runResizeVM)
+	qmResizeCmd.Flags().StringVar(&qmResizeDisk, "disk", "scsi0", `disk to resize (e.g. "scsi0", "virtio0")`)
+	qmResizeCmd.Flags().StringVar(&qmResizeSize, "size", "", `new size: "+2G" to grow by 2GB, or "10G" to set the total size (required)`)
+	qmCmd.AddCommand(qmResizeCmd)
 
 	// Mirrors actions.go's ct registration — no top-level `qm backup`/
 	// `qm snapshot`; creation nests under the plural group command like
