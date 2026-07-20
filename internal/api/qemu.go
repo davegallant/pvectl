@@ -154,3 +154,98 @@ func (c *Client) PutVMConfig(ctx context.Context, node string, vmid int, changed
 	}
 	return classifyPutError(c.do(ctx, http.MethodPut, path, strings.NewReader(form.Encode()), nil))
 }
+
+// VMStatus is a QEMU VM's live status, as returned by
+// GET /nodes/{node}/qemu/{vmid}/status/current. Unlike LXCStatus, there's
+// no swap/maxswap pair — QEMU's guest swap isn't visible via cgroups the
+// way LXC's is — and disk/maxdisk track configured disk size rather than
+// actual filesystem usage, since Proxmox can't see inside a VM's disks
+// without the guest agent.
+type VMStatus struct {
+	Status  string
+	CPU     float64
+	CPUs    int
+	Mem     int64
+	MaxMem  int64
+	Disk    int64
+	MaxDisk int64
+	Uptime  int64
+}
+
+// QemuStatus fetches vmid's live status on node — QEMU's equivalent of
+// LXCStatus. Numeric fields are loose-decoded (looseInt64) for the same
+// reason as LXCStatus's.
+func (c *Client) QemuStatus(ctx context.Context, node string, vmid int) (VMStatus, error) {
+	var resp struct {
+		Data struct {
+			Status  string     `json:"status"`
+			CPU     float64    `json:"cpu"`
+			CPUs    int        `json:"cpus"`
+			Mem     looseInt64 `json:"mem"`
+			MaxMem  looseInt64 `json:"maxmem"`
+			Disk    looseInt64 `json:"disk"`
+			MaxDisk looseInt64 `json:"maxdisk"`
+			Uptime  looseInt64 `json:"uptime"`
+		} `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/qemu/%d/status/current", node, vmid), nil, &resp); err != nil {
+		return VMStatus{}, err
+	}
+	d := resp.Data
+	return VMStatus{
+		Status:  d.Status,
+		CPU:     d.CPU,
+		CPUs:    d.CPUs,
+		Mem:     int64(d.Mem),
+		MaxMem:  int64(d.MaxMem),
+		Disk:    int64(d.Disk),
+		MaxDisk: int64(d.MaxDisk),
+		Uptime:  int64(d.Uptime),
+	}, nil
+}
+
+// QemuInterface is one network interface reported by the QEMU guest agent
+// via GET /nodes/{node}/qemu/{vmid}/agent/network-get-interfaces. Unlike
+// LXCInterface's fixed Inet/Inet6 pair, the guest agent reports an
+// arbitrary list of addresses per interface (0+ of either family) with no
+// CIDR suffix to strip — prefix length comes back as a separate field
+// pvectl doesn't currently need.
+type QemuInterface struct {
+	Name        string
+	HWAddr      string
+	IPAddresses []string
+}
+
+// QemuInterfaces fetches vmid's network interfaces on node via the QEMU
+// guest agent, omitting the loopback interface ("lo") — QEMU's equivalent
+// of LXCInterfaces. Only works when the guest agent is installed, running,
+// and enabled in the VM's config; Proxmox errors otherwise, which callers
+// should treat as "IPs unavailable" rather than a hard failure.
+func (c *Client) QemuInterfaces(ctx context.Context, node string, vmid int) ([]QemuInterface, error) {
+	var resp struct {
+		Data struct {
+			Result []struct {
+				Name        string `json:"name"`
+				HWAddr      string `json:"hardware-address"`
+				IPAddresses []struct {
+					Address string `json:"ip-address"`
+				} `json:"ip-addresses"`
+			} `json:"result"`
+		} `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/qemu/%d/agent/network-get-interfaces", node, vmid), nil, &resp); err != nil {
+		return nil, err
+	}
+	var out []QemuInterface
+	for _, e := range resp.Data.Result {
+		if e.Name == "lo" {
+			continue
+		}
+		qi := QemuInterface{Name: e.Name, HWAddr: e.HWAddr}
+		for _, ip := range e.IPAddresses {
+			qi.IPAddresses = append(qi.IPAddresses, ip.Address)
+		}
+		out = append(out, qi)
+	}
+	return out, nil
+}

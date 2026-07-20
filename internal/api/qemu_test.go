@@ -381,3 +381,117 @@ func TestDeleteVMPurge(t *testing.T) {
 		t.Errorf("path = %q, want purge=1 query param", gotPath)
 	}
 }
+
+func TestClientQemuStatus(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": map[string]any{
+				"status":  "running",
+				"cpu":     0.0037,
+				"cpus":    4,
+				"mem":     1470000000,
+				"maxmem":  6500000000,
+				"disk":    0,
+				"maxdisk": 20960000000,
+				"uptime":  2069716,
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	status, err := client.QemuStatus(context.Background(), "pve-g3-1", 200)
+	if err != nil {
+		t.Fatalf("QemuStatus() error = %v", err)
+	}
+	if gotPath != "/api2/json/nodes/pve-g3-1/qemu/200/status/current" {
+		t.Errorf("path = %q, want .../qemu/200/status/current", gotPath)
+	}
+	if status.Status != "running" || status.CPUs != 4 || status.MaxMem != 6500000000 || status.MaxDisk != 20960000000 {
+		t.Errorf("QemuStatus() = %+v, unexpected values", status)
+	}
+}
+
+func TestClientQemuStatusLooseNumericStrings(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": map[string]any{
+				"status":  "stopped",
+				"mem":     "0",
+				"maxmem":  "6500000000",
+				"disk":    "0",
+				"maxdisk": "20960000000",
+				"uptime":  "0",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	status, err := client.QemuStatus(context.Background(), "pve1", 201)
+	if err != nil {
+		t.Fatalf("QemuStatus() error = %v", err)
+	}
+	if status.MaxMem != 6500000000 || status.MaxDisk != 20960000000 {
+		t.Errorf("QemuStatus() = %+v, want string-encoded numerics parsed", status)
+	}
+}
+
+func TestClientQemuInterfacesOmitsLoopback(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": map[string]any{
+				"result": []map[string]any{
+					{
+						"name":             "lo",
+						"hardware-address": "00:00:00:00:00:00",
+						"ip-addresses": []map[string]any{
+							{"ip-address": "127.0.0.1", "ip-address-type": "ipv4", "prefix": 8},
+						},
+					},
+					{
+						"name":             "eth0",
+						"hardware-address": "52:54:00:12:34:56",
+						"ip-addresses": []map[string]any{
+							{"ip-address": "192.168.1.50", "ip-address-type": "ipv4", "prefix": 24},
+							{"ip-address": "fe80::5054:ff:fe12:3456", "ip-address-type": "ipv6", "prefix": 64},
+						},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	interfaces, err := client.QemuInterfaces(context.Background(), "pve-g3-1", 200)
+	if err != nil {
+		t.Fatalf("QemuInterfaces() error = %v", err)
+	}
+	if gotPath != "/api2/json/nodes/pve-g3-1/qemu/200/agent/network-get-interfaces" {
+		t.Errorf("path = %q, want .../qemu/200/agent/network-get-interfaces", gotPath)
+	}
+	if len(interfaces) != 1 || interfaces[0].Name != "eth0" {
+		t.Fatalf("QemuInterfaces() = %+v, want a single eth0 entry (lo filtered out)", interfaces)
+	}
+	want := []string{"192.168.1.50", "fe80::5054:ff:fe12:3456"}
+	if len(interfaces[0].IPAddresses) != len(want) || interfaces[0].IPAddresses[0] != want[0] || interfaces[0].IPAddresses[1] != want[1] {
+		t.Errorf("QemuInterfaces()[0].IPAddresses = %+v, want %+v", interfaces[0].IPAddresses, want)
+	}
+}
+
+func TestClientQemuInterfacesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.QemuInterfaces(context.Background(), "pve1", 201); err == nil {
+		t.Error("QemuInterfaces() error = nil, want non-nil for a stopped VM / no guest agent")
+	}
+}
