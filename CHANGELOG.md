@@ -1,9 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - **BREAKING:** Removed the interactive fuzzy-picker/action-menu (`ct select`/`qm select` and the "no argument falls back to the picker" behavior everywhere it existed). `pvectl` is now a strict CLI — every `ct`/`qm` command that acts on a guest (`enter`, `edit`, `start`, `stop`, `reboot`, `backups create/list/delete/restore`, `snapshots create/list/delete/rollback`, `migrate`) now requires a `<name-or-vmid>` argument instead of accepting an optional one.
 - **BREAKING:** `pvectl storage`, `pvectl nodes`, and `pvectl tasks` now map to `pvectl storage list`, `pvectl nodes list`, and `pvectl tasks list` respectively (each aliased `ls`)
+- **BREAKING:** `ct stop`/`qm stop` are now an immediate hard power-off (Proxmox's `"stop"` action) instead of a graceful shutdown — matching what native `pct`/`qm stop` do. The previous graceful behavior is now `ct shutdown`/`qm shutdown` (Proxmox's `"shutdown"` action), which waits on the guest and times out if it never responds.
 - Added `ct backups restore`/`qm backups restore`: restore a container or VM from a backup, either in place (from one of its own backups, always confirmed) or, with `--node`, from any backup found on a node for disaster recovery when the original guest no longer exists.
 - Shell completion (`pvectl completion`) now suggests VM/container names for every `ct`/`qm` command's `<name-or-vmid>` argument, fetched live from the cluster on each Tab press.
 - `pvectl ct enter`/`pvectl qm enter` gain an API-based console method (`--method api`, or set as default with `pvectl setup`) as an alternative to the default SSH path — opens Proxmox's termproxy websocket directly over the stored API token, so no SSH access to the node is required.
@@ -11,7 +12,6 @@
 - `pvectl ct exec`: run a command inside a container non-interactively over SSH (`pvectl ct exec <name-or-vmid> -- <command...>`). Tab completion for the command's own arguments (e.g. `pvectl ct exec <ct> -- cat docker-comp<TAB>`) SSHes into the container to list matching remote paths.
 - Added `pvectl ct summary` and `pvectl qm summary`
 - Added `pvectl qm create`: provision a new QEMU VM, with flags for name, node, storage, disk/memory/cores, network, SCSI controller, OS type, optional ISO install media, and `--start`; prompts interactively for anything not passed as a flag.
-- **BREAKING:** `ct stop`/`qm stop` are now an immediate hard power-off (Proxmox's `"stop"` action) instead of a graceful shutdown — matching what native `pct`/`qm stop` do. The previous graceful behavior is now `ct shutdown`/`qm shutdown` (Proxmox's `"shutdown"` action), which waits on the guest and times out if it never responds.
 
 ## 0.1.0
 
