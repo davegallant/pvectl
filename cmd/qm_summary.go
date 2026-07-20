@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"text/tabwriter"
 
@@ -63,15 +64,30 @@ func renderVMSummary(v api.VM, status api.VMStatus, config api.VMConfig, interfa
 	_, _ = fmt.Fprintf(tw, "Bootdisk size\t%s\n", formatUsage(status.Disk, status.MaxDisk))
 	_ = tw.Flush()
 
-	var ips []string
+	var ifaceLines []string
 	for _, iface := range interfaces {
-		ips = append(ips, iface.IPAddresses...)
+		var ips []string
+		for _, ip := range iface.IPAddresses {
+			// Skip link-local addresses (IPv6 fe80::/10, IPv4
+			// 169.254.0.0/16): the guest agent reports one per interface,
+			// so a guest with many virtual NICs (Docker bridges,
+			// per-container veths — common on e.g. Home Assistant OS)
+			// buries the routable addresses under a wall of non-routable,
+			// per-interface noise.
+			if parsed := net.ParseIP(ip); parsed != nil && parsed.IsLinkLocalUnicast() {
+				continue
+			}
+			ips = append(ips, ip)
+		}
+		if len(ips) > 0 {
+			ifaceLines = append(ifaceLines, fmt.Sprintf("  %s: %s", iface.Name, strings.Join(ips, ", ")))
+		}
 	}
-	if len(ips) > 0 {
+	if len(ifaceLines) > 0 {
 		_, _ = fmt.Fprintln(&buf)
 		_, _ = fmt.Fprintln(&buf, "IPs:")
-		for _, ip := range ips {
-			_, _ = fmt.Fprintf(&buf, "  %s\n", ip)
+		for _, line := range ifaceLines {
+			_, _ = fmt.Fprintln(&buf, line)
 		}
 	}
 

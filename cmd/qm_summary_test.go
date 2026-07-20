@@ -30,12 +30,47 @@ func TestRenderVMSummaryRunningVM(t *testing.T) {
 		"Guest Agent", "yes",
 		"0.37% of 4 CPUs",
 		"22.62% (1.4G of 6.1G)",
-		"192.168.1.50",
-		"fe80::5054:ff:fe12:3456",
+		"eth0: 192.168.1.50",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("renderVMSummary() = %q, want it to contain %q", got, want)
 		}
+	}
+	if strings.Contains(got, "fe80::") {
+		t.Errorf("renderVMSummary() = %q, want link-local IPv6 filtered out", got)
+	}
+}
+
+// TestRenderVMSummaryManyVirtualInterfacesOmitsLinkLocal covers a guest
+// like Home Assistant OS: many Docker/Supervisor bridge and veth
+// interfaces, each contributing its own link-local IPv6 address. Only the
+// routable addresses, grouped by interface, should make it into the
+// output — not a wall of fe80:: noise, one line per virtual NIC.
+func TestRenderVMSummaryManyVirtualInterfacesOmitsLinkLocal(t *testing.T) {
+	v := api.VM{VMID: 140, Name: "homeassistant", Node: "pve-g3-1"}
+	interfaces := []api.QemuInterface{
+		{Name: "eth0", IPAddresses: []string{"192.168.1.44", "fe80::5fca:b809:686e:4dfe"}},
+		{Name: "hassio", IPAddresses: []string{"172.30.232.1", "fd8b:837b:716c::1", "fe80::30ac:e8ff:feee:21ca"}},
+		{Name: "docker0", IPAddresses: []string{"172.30.32.1", "fd0c:ac1e:2100::1", "fe80::3c9c:bdff:fe76:8865"}},
+		{Name: "veth1234", IPAddresses: []string{"fe80::8b0:7fff:feb8:57cc"}},
+	}
+
+	got := renderVMSummary(v, api.VMStatus{}, api.VMConfig{}, interfaces, "", false)
+
+	for _, want := range []string{
+		"eth0: 192.168.1.44",
+		"hassio: 172.30.232.1, fd8b:837b:716c::1",
+		"docker0: 172.30.32.1, fd0c:ac1e:2100::1",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("renderVMSummary() = %q, want it to contain %q", got, want)
+		}
+	}
+	if strings.Contains(got, "fe80::") {
+		t.Errorf("renderVMSummary() = %q, want all link-local IPv6 filtered out", got)
+	}
+	if strings.Contains(got, "veth1234") {
+		t.Errorf("renderVMSummary() = %q, want veth1234 omitted (only had a link-local address)", got)
 	}
 }
 
