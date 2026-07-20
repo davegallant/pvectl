@@ -9,8 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/coder/websocket"
@@ -47,9 +45,8 @@ func Attach(ctx context.Context, conn *websocket.Conn) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	resizeCh := make(chan os.Signal, 1)
-	signal.Notify(resizeCh, syscall.SIGWINCH)
-	defer signal.Stop(resizeCh)
+	resizeCh, stopResize := notifyResize()
+	defer stopResize()
 
 	// \r\n, not \n: MakeRaw disabled output post-processing, so a bare \n
 	// here would move down a line without returning to column 0.
@@ -238,7 +235,8 @@ func sendResize(ctx context.Context, conn *websocket.Conn, fd int) {
 	_ = conn.Write(ctx, websocket.MessageText, []byte(frame))
 }
 
-// watchResize re-sends the terminal size on every SIGWINCH until ctx is
+// watchResize re-sends the terminal size on every signal from resizeCh
+// (SIGWINCH on Unix; never, on Windows — see notifyResize) until ctx is
 // cancelled.
 func watchResize(ctx context.Context, conn *websocket.Conn, fd int, resizeCh <-chan os.Signal) {
 	for {
