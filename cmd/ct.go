@@ -15,6 +15,8 @@ var ctCmd = &cobra.Command{
 	Short: "Manage containers",
 }
 
+var ctListNode string
+
 var ctListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},
@@ -24,21 +26,31 @@ var ctListCmd = &cobra.Command{
 		if err != nil {
 			return friendlySetupError(err)
 		}
-		return runCtList(client)
+		return runCtList(client, ctListNode)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(ctCmd)
 	ctCmd.AddCommand(ctListCmd)
+	ctListCmd.Flags().StringVar(&ctListNode, "node", "", "only list containers on this node")
 }
 
 // runCtList fetches and prints a plain VMID/NAME/NODE/STATUS table of
-// every container in the cluster.
-func runCtList(client *api.Client) error {
+// every container in the cluster, or just those on node if it's non-empty.
+func runCtList(client *api.Client, node string) error {
 	containers, err := client.ListContainers(context.Background())
 	if err != nil {
 		return fmt.Errorf("listing containers: %w", err)
+	}
+	if node != "" {
+		filtered := containers[:0]
+		for _, c := range containers {
+			if c.Node == node {
+				filtered = append(filtered, c)
+			}
+		}
+		containers = filtered
 	}
 	fmt.Print(renderContainerList(containers))
 	return nil

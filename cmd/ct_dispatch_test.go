@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -56,7 +59,44 @@ func TestRunCtList(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
-	if err := runCtList(client); err != nil {
+	if err := runCtList(client, ""); err != nil {
 		t.Fatalf("runCtList() error = %v", err)
+	}
+}
+
+func TestRunCtListFiltersByNode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{
+				{"type": "lxc", "vmid": 101, "name": "web01", "node": "pve1", "status": "running"},
+				{"type": "lxc", "vmid": 102, "name": "db01", "node": "pve2", "status": "stopped"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() error = %v", err)
+	}
+	origStdout := os.Stdout
+	os.Stdout = w
+	runErr := runCtList(client, "pve2")
+	os.Stdout = origStdout
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+
+	if runErr != nil {
+		t.Fatalf("runCtList() error = %v", runErr)
+	}
+	got := buf.String()
+	if strings.Contains(got, "web01") {
+		t.Errorf("runCtList(node=pve2) = %q, should not contain filtered-out container", got)
+	}
+	if !strings.Contains(got, "db01") {
+		t.Errorf("runCtList(node=pve2) = %q, want it to contain db01", got)
 	}
 }

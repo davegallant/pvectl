@@ -4,6 +4,7 @@
 
 - Added `pvectl ct resize`: grow a container disk (e.g. `pvectl ct resize myct --size +2G` to grow the rootfs)
 - Added `pvectl qm resize`: grow a VM disk (e.g. `pvectl qm resize myvm --size +2G` to grow scsi0)
+- Added --node flag to `pvectl ct list`/`pvectl qm list` to show only containers/VMs on a single node
 
 ## 0.2.0
 

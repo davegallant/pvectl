@@ -15,6 +15,8 @@ var qmCmd = &cobra.Command{
 	Short: "Manage QEMU VMs",
 }
 
+var qmListNode string
+
 var qmListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},
@@ -24,21 +26,31 @@ var qmListCmd = &cobra.Command{
 		if err != nil {
 			return friendlySetupError(err)
 		}
-		return runQmList(client)
+		return runQmList(client, qmListNode)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(qmCmd)
 	qmCmd.AddCommand(qmListCmd)
+	qmListCmd.Flags().StringVar(&qmListNode, "node", "", "only list VMs on this node")
 }
 
 // runQmList fetches and prints a plain VMID/NAME/NODE/STATUS table of
-// every VM in the cluster.
-func runQmList(client *api.Client) error {
+// every VM in the cluster, or just those on node if it's non-empty.
+func runQmList(client *api.Client, node string) error {
 	vms, err := client.ListVMs(context.Background())
 	if err != nil {
 		return fmt.Errorf("listing VMs: %w", err)
+	}
+	if node != "" {
+		filtered := vms[:0]
+		for _, v := range vms {
+			if v.Node == node {
+				filtered = append(filtered, v)
+			}
+		}
+		vms = filtered
 	}
 	fmt.Print(renderVMList(vms))
 	return nil
