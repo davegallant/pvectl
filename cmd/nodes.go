@@ -13,7 +13,13 @@ import (
 
 var nodesCmd = &cobra.Command{
 	Use:   "nodes",
-	Short: "List Proxmox cluster nodes",
+	Short: "Manage Proxmox cluster nodes",
+}
+
+var nodesListCmd = &cobra.Command{
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List Proxmox cluster nodes",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {
@@ -25,9 +31,10 @@ var nodesCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(nodesCmd)
+	nodesCmd.AddCommand(nodesListCmd)
 }
 
-// runNodes fetches the two independent endpoints `pvectl nodes` needs
+// runNodes fetches the two independent endpoints `pvectl nodes list` needs
 // (ClusterStatus, ClusterResources) concurrently rather than
 // sequentially, halving the one-shot latency (~2 round trips → ~1). Same
 // shared-Client/concurrency-safety reasoning as runStatus in status.go;

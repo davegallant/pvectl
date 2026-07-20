@@ -77,7 +77,7 @@ func formatBytes(n int64) string {
 // renderStatus formats a compact cluster health summary: the version/
 // quorum header plus a short line of sanity checks (quorum, node online
 // state, guest counts, storage health/availability) and an overall
-// verdict line. The detailed per-resource tables live on `pvectl nodes`
+// verdict line. The detailed per-resource tables live on `pvectl nodes list`
 // and `pvectl storage list` — `pvectl status` is the at-a-glance view. It
 // performs no I/O, so it's directly unit-testable.
 func renderStatus(version string, status api.ClusterStatus, resources api.ClusterResources) string {

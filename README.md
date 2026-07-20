@@ -1,8 +1,8 @@
 # pvectl
 
-**A command-line companion for Proxmox VE.** Manage a container
+**A command-line utility for Proxmox VE.** Manage a container
 or VM - start, stop, snapshot, back up, edit, or migrate it — all
-without leaving your terminal or memorizing a single vmid.
+without leaving your terminal or memorizing a container or vm id.
 
 ![pvectl demo](pvectl-demo.gif)
 
@@ -75,10 +75,9 @@ pveum aclmod / -token 'user@realm!tokenid' -role PVEVMAdmin,PVEAuditor,PVESDNUse
 pvectl setup
 ```
 
-This prompts for your Proxmox host, token ID (`user@realm!tokenid`), and
-token secret; validates them against the cluster; and stores them (the
-secret goes to your OS keychain, never to a plaintext file). Add
-`--insecure-skip-verify` if your cluster uses a self-signed certificate.
+This prompts for your Proxmox host, token ID, and
+token secret; validates them against the cluster; and stores them.
+Add `--insecure-skip-verify` if your cluster uses a self-signed certificate.
 
 Once setup is complete, you can run `pvectl status` to verify your cluster is healthy:
 
@@ -142,7 +141,7 @@ New LXC containers can be created with `pvectl ct create`.
   `--method api` (or force `--method ssh` even if `api` is your configured
   default).
 
-If using `ssh`, set up your SSH config in this format:
+If using `ssh`, set up your [SSH config](https://www.man7.org/linux/man-pages/man5/ssh_config.5.html) in this format:
 
 ```
 Host <node1-name>
@@ -196,14 +195,11 @@ pvectl ct config append <name-or-vmid> \
 
 > [!NOTE]
 > Proxmox's REST API doesn't expose raw `lxc.*` directives at all, so this
-> falls back to `ssh <node> cat >> /etc/pve/lxc/<vmid>.conf`, the same way
-> console access relies on your own SSH config/agent rather than
-> credentials stored by `pvectl`. Restart the container for changes to
-> take effect.
+> falls back to `ssh <node> cat >> /etc/pve/lxc/<vmid>.conf`.
 
 ### Cluster tasks
 
-The cluster's recent tasks can be listed with `pvectl tasks`, with a live-refreshing view available.
+The cluster's recent tasks can be listed with `pvectl tasks list` (alias `ls`), with a live-refreshing view available via `--watch`.
 
 ## License
 

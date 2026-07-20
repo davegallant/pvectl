@@ -181,7 +181,7 @@ These were each found via live debugging against a real Proxmox cluster
   migrate/snapshot/create) — it now excludes `WARNINGS: N` specifically
   via the shared `TaskCompletedWithWarnings` helper, which
   `cmd/tasks.go`'s `taskStatusLabel` also uses (`warning: <reason>`
-  instead of `failed: <reason>` in `pvectl tasks`'s STATUS column) so the
+  instead of `failed: <reason>` in `pvectl tasks list`'s STATUS column) so the
   two "is this really a failure" checks can't drift apart. The log is
   still printed either way (see above), so the warning itself is never
   silently hidden — only the ✓/✗ and exit-code verdict changed.

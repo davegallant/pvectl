@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// tasksWatchInterval is how often `pvectl tasks --watch` refreshes. Same
+// tasksWatchInterval is how often `pvectl tasks list --watch` refreshes. Same
 // cadence as statusWatchInterval — fast enough to feel live without
 // hammering the Proxmox API.
 const tasksWatchInterval = 2 * time.Second
@@ -23,7 +23,13 @@ var tasksWatch bool
 
 var tasksCmd = &cobra.Command{
 	Use:   "tasks",
-	Short: "List recent cluster tasks",
+	Short: "Manage cluster tasks",
+}
+
+var tasksListCmd = &cobra.Command{
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List recent cluster tasks",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {
@@ -37,8 +43,9 @@ var tasksCmd = &cobra.Command{
 }
 
 func init() {
-	tasksCmd.Flags().BoolVarP(&tasksWatch, "watch", "w", false, "refresh the task list every 2 seconds until interrupted (Ctrl-C)")
+	tasksListCmd.Flags().BoolVarP(&tasksWatch, "watch", "w", false, "refresh the task list every 2 seconds until interrupted (Ctrl-C)")
 	rootCmd.AddCommand(tasksCmd)
+	tasksCmd.AddCommand(tasksListCmd)
 }
 
 func runTasks(client *api.Client) error {
