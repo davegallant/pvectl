@@ -80,6 +80,51 @@ func (c *Client) MigrateVM(ctx context.Context, node string, vmid int, target st
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }
 
+// CreateVMParams holds the qm-create parameters `pvectl qm create`
+// exposes. Unlike CreateContainerParams's OSTemplate, ISO is optional — a
+// VM can be created disk-only with no boot media attached (e.g. for a
+// later disk import or cloud image), so an empty ISO means no ide2 device
+// and a boot order with just the disk.
+type CreateVMParams struct {
+	VMID       int
+	Name       string
+	Cores      int
+	MemoryMB   int
+	Storage    string
+	DiskSizeGB int
+	Net0       string
+	SCSIHW     string
+	OSType     string
+	ISO        string
+}
+
+// CreateVM creates a new QEMU VM on node, returning the Proxmox task
+// UPID — mirrors CreateContainer, except the disk is a scsi0 volume
+// instead of a rootfs and boot media is optional rather than a required
+// ostemplate. When ISO is set, it's attached as ide2 (cdrom) and the boot
+// order tries it before the disk, matching how Proxmox's own GUI wizard
+// orders a fresh install.
+func (c *Client) CreateVM(ctx context.Context, node string, p CreateVMParams) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/qemu", node)
+	form := url.Values{
+		"vmid":   {strconv.Itoa(p.VMID)},
+		"name":   {p.Name},
+		"cores":  {strconv.Itoa(p.Cores)},
+		"memory": {strconv.Itoa(p.MemoryMB)},
+		"scsi0":  {fmt.Sprintf("%s:%d", p.Storage, p.DiskSizeGB)},
+		"net0":   {p.Net0},
+		"scsihw": {p.SCSIHW},
+		"ostype": {p.OSType},
+	}
+	if p.ISO != "" {
+		form.Set("ide2", fmt.Sprintf("%s,media=cdrom", p.ISO))
+		form.Set("boot", "order=ide2;scsi0")
+	} else {
+		form.Set("boot", "order=scsi0")
+	}
+	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
+}
+
 // RestoreVM restores archive (a backup volid, as returned by
 // ListBackups/ListAllBackups) onto vmid on node, returning the Proxmox
 // task UPID — mirrors RestoreContainer exactly, except QEMU's restore

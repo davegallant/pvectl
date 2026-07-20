@@ -120,12 +120,13 @@ Snapshots can be created, listed, deleted, and rolled back with `pvectl ct snaps
 
 Containers and VMs can be renamed with `pvectl ct rename` and `pvectl qm rename`.
 
-### Creating containers
+### Creating containers and VMs
 
-New LXC containers can be created with `pvectl ct create`.
-
-> [!NOTE]
-> There's no VM creation yet — this is LXC-only for now.
+New LXC containers can be created with `pvectl ct create`; new QEMU VMs
+with `pvectl qm create`. Unlike `ct create`'s required OS template,
+`qm create`'s `--iso` is optional — the prompt (or `--iso` flag) accepts an
+empty reply to skip it and create a disk-only VM (e.g. for a later disk
+import).
 
 ### Console access
 

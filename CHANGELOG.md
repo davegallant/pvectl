@@ -10,6 +10,7 @@
 - Added `pvectl config view`: prints the on-disk config as YAML.
 - `pvectl ct exec`: run a command inside a container non-interactively over SSH (`pvectl ct exec <name-or-vmid> -- <command...>`). Tab completion for the command's own arguments (e.g. `pvectl ct exec <ct> -- cat docker-comp<TAB>`) SSHes into the container to list matching remote paths.
 - Added `pvectl ct summary` and `pvectl qm summary`
+- Added `pvectl qm create`: provision a new QEMU VM, with flags for name, node, storage, disk/memory/cores, network, SCSI controller, OS type, optional ISO install media, and `--start`; prompts interactively for anything not passed as a flag.
 
 ## 0.1.0
 

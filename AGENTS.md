@@ -222,9 +222,8 @@ These were each found via live debugging against a real Proxmox cluster
   itself; it relies entirely on the user's own `~/.ssh/config` (or DNS)
   resolving that name. This was an explicit design choice: reuse the
   user's SSH config rather than have pvectl manage per-node SSH settings.
-- `pvectl ct create` has no `qm create` mirror yet, and still has no raw
-  `lxc.*` config passthrough at create time (e.g. TUN/TAP device rules) —
-  that's a separate, later step: `pvectl ct config append
+- `pvectl ct create` still has no raw `lxc.*` config passthrough at create
+  time (e.g. TUN/TAP device rules) — that's a separate, later step: `pvectl ct config append
   <name-or-vmid> --line "..."` (repeatable `--line`, one or more raw
   "lxc.subkey: value" lines). This SSHes `cat >> /etc/pve/lxc/<vmid>.conf`
   on the node (`ssh.AppendRawConfig`, `internal/ssh/ssh.go`) instead of
@@ -317,8 +316,18 @@ These were each found via live debugging against a real Proxmox cluster
   with the first shown as the default (`promptChoice` in `cmd/ct_create.go`,
   same bracket-default styling `migrate.go`'s `promptTargetNode` uses),
   `--storage` reuses `promptStorage` directly. `--vmid` defaults to
-  Proxmox's next free ID (`Client.NextID`) rather than prompting. It's
-  also LXC-only for now — no `qm create` mirror (see "Known limitations").
+  Proxmox's next free ID (`Client.NextID`) rather than prompting.
+- `qm create` (`cmd/qm_create.go`) mirrors `ct create` with one deliberate
+  difference: QEMU has no template concept, so there's no required
+  `--template` prompt step. `--iso` is a plain optional flag instead — when
+  given, it's attached as `ide2` (cdrom) and the boot order tries it before
+  the disk (`scsi0`); when omitted, no prompt fires and the VM is created
+  disk-only (e.g. for a later disk import or cloud image workflow), unlike
+  `ct create`'s template which is always required. `--storage` reuses
+  `promptImagesStorage` (`cmd/qm_actions.go`, "images" content — already
+  existed for `qm backups restore`) rather than duplicating
+  `promptRootfsStorage`'s "rootdir"-content filtering, since a QEMU disk
+  and an LXC rootfs need different storage content types.
 - `ct delete` (`cmd/ct_delete.go`) follows the `<name-or-vmid>`/
   `resolveContainer` convention normally (unlike `ct create`, it acts on
   an existing guest), via `newSimpleActionCmd` same as start/stop/backup/

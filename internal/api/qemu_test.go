@@ -190,6 +190,95 @@ func TestClientMigrateVMStoppedOmitsOnline(t *testing.T) {
 	}
 }
 
+func TestCreateVM(t *testing.T) {
+	var gotPath, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	upid, err := client.CreateVM(context.Background(), "pve1", CreateVMParams{
+		VMID:       201,
+		Name:       "web01",
+		Cores:      2,
+		MemoryMB:   2048,
+		Storage:    "local-lvm",
+		DiskSizeGB: 32,
+		Net0:       "virtio,bridge=vmbr0",
+		SCSIHW:     "virtio-scsi-pci",
+		OSType:     "l26",
+	})
+	if err != nil {
+		t.Fatalf("CreateVM() error = %v", err)
+	}
+	if upid != "UPID:..." {
+		t.Errorf("CreateVM() upid = %q", upid)
+	}
+	if gotPath != "/api2/json/nodes/pve1/qemu" {
+		t.Errorf("path = %q, want /api2/json/nodes/pve1/qemu", gotPath)
+	}
+
+	values, err := url.ParseQuery(gotBody)
+	if err != nil {
+		t.Fatalf("ParseQuery(%q) error = %v", gotBody, err)
+	}
+	want := map[string]string{
+		"vmid":   "201",
+		"name":   "web01",
+		"cores":  "2",
+		"memory": "2048",
+		"scsi0":  "local-lvm:32",
+		"net0":   "virtio,bridge=vmbr0",
+		"scsihw": "virtio-scsi-pci",
+		"ostype": "l26",
+		"boot":   "order=scsi0",
+	}
+	for k, v := range want {
+		if values.Get(k) != v {
+			t.Errorf("body[%q] = %q, want %q", k, values.Get(k), v)
+		}
+	}
+	if values.Has("ide2") {
+		t.Errorf("body = %q, want ide2 omitted when no ISO given", gotBody)
+	}
+}
+
+func TestCreateVMWithISO(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.CreateVM(context.Background(), "pve1", CreateVMParams{
+		VMID:       201,
+		Name:       "web01",
+		Storage:    "local-lvm",
+		DiskSizeGB: 32,
+		ISO:        "local:iso/ubuntu-24.04.iso",
+	}); err != nil {
+		t.Fatalf("CreateVM() error = %v", err)
+	}
+
+	values, err := url.ParseQuery(gotBody)
+	if err != nil {
+		t.Fatalf("ParseQuery(%q) error = %v", gotBody, err)
+	}
+	if values.Get("ide2") != "local:iso/ubuntu-24.04.iso,media=cdrom" {
+		t.Errorf("body[ide2] = %q, want local:iso/ubuntu-24.04.iso,media=cdrom", values.Get("ide2"))
+	}
+	if values.Get("boot") != "order=ide2;scsi0" {
+		t.Errorf("body[boot] = %q, want order=ide2;scsi0 when ISO is set", values.Get("boot"))
+	}
+}
+
 func TestRestoreVM(t *testing.T) {
 	var gotPath, gotBody string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
