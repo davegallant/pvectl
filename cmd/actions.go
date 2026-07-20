@@ -235,7 +235,7 @@ func newSimpleActionCmd(use, short string, run func(*api.Client, api.Container) 
 	return &cobra.Command{
 		Use:               use + " <name-or-vmid>",
 		Short:             short,
-		Args:              cobra.ExactArgs(1),
+		Args:              requireArgs("name-or-vmid"),
 		ValidArgsFunction: completeContainerNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := loadClient()

@@ -240,7 +240,7 @@ func newSimpleVMActionCmd(use, short string, run func(*api.Client, api.VM) error
 	return &cobra.Command{
 		Use:               use + " <name-or-vmid>",
 		Short:             short,
-		Args:              cobra.ExactArgs(1),
+		Args:              requireArgs("name-or-vmid"),
 		ValidArgsFunction: completeVMNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := loadClient()

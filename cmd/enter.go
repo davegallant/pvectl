@@ -11,7 +11,7 @@ var enterMethod string
 var enterCmd = &cobra.Command{
 	Use:               "enter <name-or-vmid>",
 	Short:             "Enter a container's shell via SSH (see --method for the API alternative)",
-	Args:              cobra.ExactArgs(1),
+	Args:              requireArgs("name-or-vmid"),
 	ValidArgsFunction: completeContainerNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()

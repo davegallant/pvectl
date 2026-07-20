@@ -11,7 +11,7 @@ var qmEnterMethod string
 var qmEnterCmd = &cobra.Command{
 	Use:               "enter <name-or-vmid>",
 	Short:             "Attach to a VM's serial console via SSH (see --method for the API alternative)",
-	Args:              cobra.ExactArgs(1),
+	Args:              requireArgs("name-or-vmid"),
 	ValidArgsFunction: completeVMNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()

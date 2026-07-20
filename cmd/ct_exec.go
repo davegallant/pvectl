@@ -18,7 +18,7 @@ const execCompletionTimeout = 3 * time.Second
 var ctExecCmd = &cobra.Command{
 	Use:               "exec <name-or-vmid> -- <command> [args...]",
 	Short:             "Run a command inside a container over SSH, non-interactively",
-	Args:              cobra.MinimumNArgs(2),
+	Args:              requireMinArgs("name-or-vmid", "command"),
 	ValidArgsFunction: completeExecArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
