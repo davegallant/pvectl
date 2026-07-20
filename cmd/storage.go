@@ -11,7 +11,13 @@ import (
 
 var storageCmd = &cobra.Command{
 	Use:   "storage",
-	Short: "Show cluster storage usage and health",
+	Short: "Manage cluster storage",
+}
+
+var storageListCmd = &cobra.Command{
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "Show cluster storage usage and health",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {
@@ -23,6 +29,7 @@ var storageCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(storageCmd)
+	storageCmd.AddCommand(storageListCmd)
 }
 
 func runStorage(client *api.Client) error {

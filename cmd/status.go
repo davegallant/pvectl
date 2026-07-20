@@ -78,7 +78,7 @@ func formatBytes(n int64) string {
 // quorum header plus a short line of sanity checks (quorum, node online
 // state, guest counts, storage health/availability) and an overall
 // verdict line. The detailed per-resource tables live on `pvectl nodes`
-// and `pvectl storage` — `pvectl status` is the at-a-glance view. It
+// and `pvectl storage list` — `pvectl status` is the at-a-glance view. It
 // performs no I/O, so it's directly unit-testable.
 func renderStatus(version string, status api.ClusterStatus, resources api.ClusterResources) string {
 	var buf strings.Builder
@@ -139,7 +139,7 @@ func renderStatus(version string, status api.ClusterStatus, resources api.Cluste
 	info("VMs", fmt.Sprintf("%d running, %d stopped", resources.VMs.Running, resources.VMs.Stopped))
 
 	// Storage: availability first, then capacity pressure (reusing the
-	// warn/crit thresholds shared with `pvectl storage`).
+	// warn/crit thresholds shared with `pvectl storage list`).
 	storage := sortedCollapsedStorage(resources.Storage)
 	sTotal := len(storage)
 	sAvail := 0
@@ -183,8 +183,8 @@ func renderStatus(version string, status api.ClusterStatus, resources api.Cluste
 
 // sortedCollapsedStorage sorts a copy of storages by name (ties broken by
 // node) and collapses entries sharing a name down to one row each — shared
-// by `pvectl status`'s Storage section and the standalone `pvectl storage`
-// command so they can't drift apart on the same underlying data.
+// by `pvectl status`'s Storage section and the standalone `pvectl storage
+// list` command so they can't drift apart on the same underlying data.
 func sortedCollapsedStorage(storages []api.StorageResource) []api.StorageResource {
 	storage := append([]api.StorageResource(nil), storages...)
 	sort.Slice(storage, func(i, j int) bool {
@@ -208,7 +208,7 @@ func usePercent(s api.StorageResource) int {
 
 // renderStorageTable writes the NAME/USED/TOTAL/USE/HEALTH table for
 // storages to w. Shared by `pvectl status` (as one section among several)
-// and `pvectl storage` (as its whole output). storages should already be
+// and `pvectl storage list` (as its whole output). storages should already be
 // deduplicated by name (see sortedCollapsedStorage) — mirrors
 // renderNodesTable's role for nodes.
 func renderStorageTable(w io.Writer, storages []api.StorageResource) {

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **BREAKING:** Removed the interactive fuzzy-picker/action-menu (`ct select`/`qm select` and the "no argument falls back to the picker" behavior everywhere it existed). `pvectl` is now a strict CLI — every `ct`/`qm` command that acts on a guest (`enter`, `edit`, `start`, `stop`, `reboot`, `backups create/list/delete/restore`, `snapshots create/list/delete/rollback`, `migrate`) now requires a `<name-or-vmid>` argument instead of accepting an optional one.
+- **BREAKING:** `pvectl storage` now maps to `pvectl storage ls`
 - Added `ct backups restore`/`qm backups restore`: restore a container or VM from a backup, either in place (from one of its own backups, always confirmed) or, with `--node`, from any backup found on a node for disaster recovery when the original guest no longer exists.
 - Shell completion (`pvectl completion`) now suggests VM/container names for every `ct`/`qm` command's `<name-or-vmid>` argument, fetched live from the cluster on each Tab press.
 - `pvectl ct enter`/`pvectl qm enter` gain an API-based console method (`--method api`, or set as default with `pvectl setup`) as an alternative to the default SSH path — opens Proxmox's termproxy websocket directly over the stored API token, so no SSH access to the node is required.
