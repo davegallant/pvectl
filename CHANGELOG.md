@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `pvectl ct resize`: grow a container disk (e.g. `pvectl ct resize myct --size +2G` to grow the rootfs)
+
 ## 0.2.0
 
 - **BREAKING:** Removed the interactive fuzzy-picker/action-menu (`ct select`/`qm select` and the "no argument falls back to the picker" behavior everywhere it existed). `pvectl` is now a strict CLI — every `ct`/`qm` command that acts on a guest (`enter`, `edit`, `start`, `stop`, `reboot`, `backups create/list/delete/restore`, `snapshots create/list/delete/rollback`, `migrate`) now requires a `<name-or-vmid>` argument instead of accepting an optional one.

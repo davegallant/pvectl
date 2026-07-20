@@ -106,6 +106,40 @@ func TestClientSnapshot(t *testing.T) {
 	}
 }
 
+func TestClientResizeContainer(t *testing.T) {
+	var gotPath, gotMethod, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	upid, err := client.ResizeContainer(context.Background(), "pve1", 101, "rootfs", "+2G")
+	if err != nil {
+		t.Fatalf("ResizeContainer() error = %v", err)
+	}
+	if upid != "UPID:..." {
+		t.Errorf("upid = %q, want %q", upid, "UPID:...")
+	}
+	if gotMethod != http.MethodPut {
+		t.Errorf("method = %q, want PUT", gotMethod)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101/resize" {
+		t.Errorf("path = %q, want .../lxc/101/resize", gotPath)
+	}
+	form, err := url.ParseQuery(gotBody)
+	if err != nil {
+		t.Fatalf("ParseQuery(%q) error = %v", gotBody, err)
+	}
+	if form.Get("disk") != "rootfs" || form.Get("size") != "+2G" {
+		t.Errorf("form = %q, want disk=rootfs&size=%%2B2G", gotBody)
+	}
+}
+
 func TestCreateContainer(t *testing.T) {
 	var gotPath, gotBody string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

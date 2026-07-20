@@ -125,6 +125,24 @@ func runMigrate(client *api.Client, c api.Container, target string) error {
 	return progressErr
 }
 
+// ctResizeDisk/ctResizeSize back `ct resize`'s `--disk`/`--size` flags.
+var ctResizeDisk string
+var ctResizeSize string
+
+func runResize(client *api.Client, c api.Container) error {
+	if ctResizeSize == "" {
+		return fmt.Errorf("--size is required (e.g. +2G to grow by 2GB, or 10G to set the total size)")
+	}
+
+	upid, err := client.ResizeContainer(context.Background(), c.Node, c.VMID, ctResizeDisk, ctResizeSize)
+	if err != nil {
+		return fmt.Errorf("resizing %s (%d) disk %s: %w", c.Name, c.VMID, ctResizeDisk, err)
+	}
+	return runProgressAction(client, c.Node, upid,
+		fmt.Sprintf("resizing %s (%d) disk %s to %s", c.Name, c.VMID, ctResizeDisk, ctResizeSize),
+		fmt.Sprintf("resized %s (%d) disk %s to %s", c.Name, c.VMID, ctResizeDisk, ctResizeSize))
+}
+
 func runBackups(client *api.Client, c api.Container) error {
 	return runListBackups(client, c.Node, c.VMID, c.Name)
 }
@@ -268,6 +286,11 @@ func init() {
 	ctCmd.AddCommand(newSimpleActionCmd("stop", "Stop a container immediately (hard power-off, no graceful attempt)", runStop))
 	ctCmd.AddCommand(newSimpleActionCmd("shutdown", "Gracefully shut down a container (waits on the guest, times out if it never responds)", runShutdown))
 	ctCmd.AddCommand(newSimpleActionCmd("reboot", "Reboot a container", runReboot))
+
+	ctResizeCmd := newSimpleActionCmd("resize", "Grow a container disk (cannot shrink)", runResize)
+	ctResizeCmd.Flags().StringVar(&ctResizeDisk, "disk", "rootfs", `disk to resize (e.g. "rootfs", "mp0")`)
+	ctResizeCmd.Flags().StringVar(&ctResizeSize, "size", "", `new size: "+2G" to grow by 2GB, or "10G" to set the total size (required)`)
+	ctCmd.AddCommand(ctResizeCmd)
 
 	// Every other multi-verb resource (backups, snapshots) nests all of
 	// its verbs — including creation — under the plural group command

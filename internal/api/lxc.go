@@ -124,6 +124,17 @@ func (c *Client) RestoreContainer(ctx context.Context, node string, vmid int, ar
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }
 
+// ResizeContainer grows disk (e.g. "rootfs", "mp0") on vmid, returning the
+// Proxmox task UPID — like `pct resize`, this only grows a disk, it can't
+// shrink one. size takes Proxmox's own size syntax: a "+"-prefixed delta
+// (e.g. "+2G") to grow by that amount, or a bare absolute size (e.g. "10G")
+// to set the new total size directly.
+func (c *Client) ResizeContainer(ctx context.Context, node string, vmid int, disk, size string) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/lxc/%d/resize", node, vmid)
+	form := url.Values{"disk": {disk}, "size": {size}}
+	return c.putUPID(ctx, path, strings.NewReader(form.Encode()))
+}
+
 func (c *Client) Snapshot(ctx context.Context, node string, vmid int, name string) (string, error) {
 	path := fmt.Sprintf("/nodes/%s/lxc/%d/snapshot", node, vmid)
 	form := url.Values{"snapname": {name}}

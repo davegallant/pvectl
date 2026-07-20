@@ -35,6 +35,19 @@ func (c *Client) postUPID(ctx context.Context, path string, body io.Reader) (str
 	return resp.Data, nil
 }
 
+// putUPID is postUPID's PUT counterpart — used by the LXC/QEMU resize
+// endpoints, which (unlike every other config PUT) return a task UPID
+// rather than an empty reply.
+func (c *Client) putUPID(ctx context.Context, path string, body io.Reader) (string, error) {
+	var resp struct {
+		Data string `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodPut, path, body, &resp); err != nil {
+		return "", err
+	}
+	return resp.Data, nil
+}
+
 // classifyPutError inspects a PutConfig/PutVMConfig error and, if it's a
 // Proxmox digest mismatch, wraps it in ErrDigestMismatch so callers can
 // errors.Is it. A mismatch surfaces two ways in Proxmox's replies: as a
