@@ -279,3 +279,45 @@ func TestNextIDRejectsUnparseableID(t *testing.T) {
 		t.Error("NextID() error = nil, want an error for an unparseable id")
 	}
 }
+
+func TestHAResourceStateManaged(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{
+				{"sid": "vm:100", "type": "vm", "state": "started"},
+				{"sid": "ct:104", "type": "ct", "state": "started"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	state, managed, err := client.HAResourceState(context.Background(), "ct:104")
+	if err != nil {
+		t.Fatalf("HAResourceState() error = %v", err)
+	}
+	if !managed || state != "started" {
+		t.Errorf("HAResourceState() = (%q, %v), want (\"started\", true)", state, managed)
+	}
+	if gotPath != "/api2/json/cluster/ha/resources" {
+		t.Errorf("path = %q, want /api2/json/cluster/ha/resources", gotPath)
+	}
+}
+
+func TestHAResourceStateNotManaged(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{}})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	state, managed, err := client.HAResourceState(context.Background(), "ct:104")
+	if err != nil {
+		t.Fatalf("HAResourceState() error = %v", err)
+	}
+	if managed || state != "" {
+		t.Errorf("HAResourceState() = (%q, %v), want (\"\", false) for an unmanaged guest", state, managed)
+	}
+}

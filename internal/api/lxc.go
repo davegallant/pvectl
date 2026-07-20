@@ -204,3 +204,96 @@ func (c *Client) PutConfig(ctx context.Context, node string, vmid int, changed m
 	}
 	return classifyPutError(c.do(ctx, http.MethodPut, path, strings.NewReader(form.Encode()), nil))
 }
+
+// LXCStatus is a container's live status/resource usage, as returned by
+// GET /nodes/{node}/lxc/{vmid}/status/current. Unlike Container (from
+// /cluster/resources), this has the byte-level mem/swap/disk usage `ct
+// summary` needs.
+type LXCStatus struct {
+	Status  string
+	CPU     float64 // fraction 0-1
+	CPUs    int
+	Mem     int64
+	MaxMem  int64
+	Swap    int64
+	MaxSwap int64
+	Disk    int64
+	MaxDisk int64
+	Uptime  int64
+}
+
+// LXCStatus fetches vmid's live status on node. mem/swap/disk/uptime are
+// loose-decoded (looseInt64) — same rationale as backup.go's storage
+// content listing: unconfirmed against a real cluster from this sandbox,
+// and Proxmox has sent supposedly-numeric fields as JSON strings on other
+// endpoints before.
+func (c *Client) LXCStatus(ctx context.Context, node string, vmid int) (LXCStatus, error) {
+	var resp struct {
+		Data struct {
+			Status  string     `json:"status"`
+			CPU     float64    `json:"cpu"`
+			CPUs    int        `json:"cpus"`
+			Mem     looseInt64 `json:"mem"`
+			MaxMem  looseInt64 `json:"maxmem"`
+			Swap    looseInt64 `json:"swap"`
+			MaxSwap looseInt64 `json:"maxswap"`
+			Disk    looseInt64 `json:"disk"`
+			MaxDisk looseInt64 `json:"maxdisk"`
+			Uptime  looseInt64 `json:"uptime"`
+		} `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/lxc/%d/status/current", node, vmid), nil, &resp); err != nil {
+		return LXCStatus{}, err
+	}
+	d := resp.Data
+	return LXCStatus{
+		Status:  d.Status,
+		CPU:     d.CPU,
+		CPUs:    d.CPUs,
+		Mem:     int64(d.Mem),
+		MaxMem:  int64(d.MaxMem),
+		Swap:    int64(d.Swap),
+		MaxSwap: int64(d.MaxSwap),
+		Disk:    int64(d.Disk),
+		MaxDisk: int64(d.MaxDisk),
+		Uptime:  int64(d.Uptime),
+	}, nil
+}
+
+// LXCInterface is one network interface reported by
+// GET /nodes/{node}/lxc/{vmid}/interfaces. Inet/Inet6 include Proxmox's
+// CIDR suffix (e.g. "192.168.1.24/24") as returned by the API.
+type LXCInterface struct {
+	Name   string
+	HWAddr string
+	Inet   string
+	Inet6  string
+}
+
+// LXCInterfaces fetches vmid's network interfaces on node, omitting the
+// loopback interface ("lo") — Proxmox's own Summary panel doesn't show it
+// either. Only works while the container is running; Proxmox returns an
+// error otherwise, which callers should treat as "IPs unavailable" rather
+// than a hard failure (there's no config-only way to know a DHCP-assigned
+// IP).
+func (c *Client) LXCInterfaces(ctx context.Context, node string, vmid int) ([]LXCInterface, error) {
+	var resp struct {
+		Data []struct {
+			Name   string `json:"name"`
+			HWAddr string `json:"hwaddr"`
+			Inet   string `json:"inet"`
+			Inet6  string `json:"inet6"`
+		} `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/lxc/%d/interfaces", node, vmid), nil, &resp); err != nil {
+		return nil, err
+	}
+	var out []LXCInterface
+	for _, e := range resp.Data {
+		if e.Name == "lo" {
+			continue
+		}
+		out = append(out, LXCInterface{Name: e.Name, HWAddr: e.HWAddr, Inet: e.Inet, Inet6: e.Inet6})
+	}
+	return out, nil
+}

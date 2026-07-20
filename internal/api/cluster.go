@@ -187,6 +187,34 @@ func (c *Client) NextID(ctx context.Context) (int, error) {
 	return id, nil
 }
 
+// HAResourceState fetches sid's requested HA state (e.g. "started",
+// "stopped", "disabled") from GET /cluster/ha/resources — sid is
+// "ct:<vmid>" for a container. managed reports whether sid appears in the
+// list at all: Proxmox omits guests that aren't HA-managed entirely
+// rather than listing them with an empty state, so "not found" (managed
+// == false) is the normal "not under HA" case — not an error — matching
+// the GUI's Summary panel showing "HA State: none". Filtered client-side
+// like ListContainers, rather than GET /cluster/ha/resources/{sid}, since
+// a single-sid lookup's 404-vs-error semantics aren't confirmed against a
+// real cluster from this sandbox.
+func (c *Client) HAResourceState(ctx context.Context, sid string) (state string, managed bool, err error) {
+	var resp struct {
+		Data []struct {
+			SID   string `json:"sid"`
+			State string `json:"state"`
+		} `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/cluster/ha/resources", nil, &resp); err != nil {
+		return "", false, err
+	}
+	for _, r := range resp.Data {
+		if r.SID == sid {
+			return r.State, true, nil
+		}
+	}
+	return "", false, nil
+}
+
 func addResourceCount(counts *ResourceCounts, status string) {
 	counts.Total++
 	switch status {

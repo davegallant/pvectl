@@ -1,0 +1,123 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"strings"
+	"text/tabwriter"
+
+	"github.com/davegallant/pvectl/internal/api"
+)
+
+// runSummary fetches everything `ct summary` shows. Status/current and
+// config are core — a container always has them, so a failure there hard-
+// errors like every other `ct` command. Interfaces and HA state are
+// best-effort instead, deliberately breaking from `status`'s all-or-
+// nothing rule (see AGENTS.md): a stopped container can't report live
+// interfaces (Proxmox errors), and most homelab clusters have no HA
+// manager configured at all — neither should block the rest of the
+// summary from showing.
+func runSummary(client *api.Client, c api.Container) error {
+	ctx := context.Background()
+
+	status, err := client.LXCStatus(ctx, c.Node, c.VMID)
+	if err != nil {
+		return fmt.Errorf("fetching status for %s (%d): %w", c.Name, c.VMID, err)
+	}
+	config, err := client.GetConfig(ctx, c.Node, c.VMID)
+	if err != nil {
+		return fmt.Errorf("fetching config for %s (%d): %w", c.Name, c.VMID, err)
+	}
+
+	interfaces, _ := client.LXCInterfaces(ctx, c.Node, c.VMID)
+	haState, haManaged, _ := client.HAResourceState(ctx, fmt.Sprintf("ct:%d", c.VMID))
+
+	fmt.Print(renderSummary(c, status, config, interfaces, haState, haManaged))
+	return nil
+}
+
+// renderSummary formats a container's status, HA state, resource usage,
+// and IPs — pvectl's equivalent of Proxmox's own "Summary" tab for a
+// container. It performs no I/O, so it's directly unit-testable, same
+// pattern as renderStatus/renderContainerList.
+func renderSummary(c api.Container, status api.LXCStatus, config api.Config, interfaces []api.LXCInterface, haState string, haManaged bool) string {
+	var buf strings.Builder
+
+	fmt.Fprintf(&buf, "Container %d (%s) on node %q\n\n", c.VMID, c.Name, c.Node)
+
+	ha := "none"
+	if haManaged {
+		ha = haState
+	}
+	unprivileged := "no"
+	if config.Fields["unprivileged"] == "1" {
+		unprivileged = "yes"
+	}
+
+	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintf(tw, "Status\t%s\n", status.Status)
+	_, _ = fmt.Fprintf(tw, "HA State\t%s\n", ha)
+	_, _ = fmt.Fprintf(tw, "Node\t%s\n", c.Node)
+	_, _ = fmt.Fprintf(tw, "Unprivileged\t%s\n", unprivileged)
+	_, _ = fmt.Fprintln(tw)
+	_, _ = fmt.Fprintf(tw, "CPU usage\t%s\n", formatCPUUsage(status.CPU, status.CPUs))
+	_, _ = fmt.Fprintf(tw, "Memory usage\t%s\n", formatUsage(status.Mem, status.MaxMem))
+	_, _ = fmt.Fprintf(tw, "SWAP usage\t%s\n", formatUsage(status.Swap, status.MaxSwap))
+	_, _ = fmt.Fprintf(tw, "Bootdisk size\t%s\n", formatUsage(status.Disk, status.MaxDisk))
+	_ = tw.Flush()
+
+	var ips []string
+	for _, iface := range interfaces {
+		if ip := stripCIDR(iface.Inet); ip != "" {
+			ips = append(ips, ip)
+		}
+		if ip := stripCIDR(iface.Inet6); ip != "" {
+			ips = append(ips, ip)
+		}
+	}
+	if len(ips) > 0 {
+		_, _ = fmt.Fprintln(&buf)
+		_, _ = fmt.Fprintln(&buf, "IPs:")
+		for _, ip := range ips {
+			_, _ = fmt.Fprintf(&buf, "  %s\n", ip)
+		}
+	}
+
+	return buf.String()
+}
+
+// formatCPUUsage renders cpu (a 0-1 fraction, as returned by
+// status/current) as a "N.NN% of N CPUs" line — two decimal places since
+// idle containers commonly sit under 1% (an integer-percent rounding, as
+// used by `pvectl status`'s per-node CPU column, would flatten that to a
+// misleading "0%").
+func formatCPUUsage(cpu float64, cpus int) string {
+	return fmt.Sprintf("%.2f%% of %d CPUs", cpu*100, cpus)
+}
+
+// formatUsage renders a used/max byte pair as "N.NN% (used of max)", or
+// "N/A" when max is unreported (0 or less) — e.g. SWAP on a container with
+// no swap configured, or a Proxmox version that doesn't report bootdisk
+// usage in status/current.
+func formatUsage(used, max int64) string {
+	if max <= 0 {
+		return "N/A"
+	}
+	pct := math.Round(float64(used)/float64(max)*10000) / 100
+	return fmt.Sprintf("%.2f%% (%s of %s)", pct, formatBytes(used), formatBytes(max))
+}
+
+// stripCIDR trims a Proxmox interfaces entry's CIDR suffix (e.g.
+// "192.168.1.24/24" -> "192.168.1.24") — pvectl shows bare IPs, matching
+// the Proxmox GUI's Summary panel.
+func stripCIDR(s string) string {
+	if i := strings.IndexByte(s, '/'); i >= 0 {
+		return s[:i]
+	}
+	return s
+}
+
+func init() {
+	ctCmd.AddCommand(newSimpleActionCmd("summary", "Show a container's status, HA state, resource usage, and IPs", runSummary))
+}

@@ -449,6 +449,108 @@ func TestClientPutConfigDigestMismatch(t *testing.T) {
 	}
 }
 
+func TestClientLXCStatus(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": map[string]any{
+				"status":  "running",
+				"cpu":     0.0037,
+				"cpus":    4,
+				"mem":     1470000000,
+				"maxmem":  6500000000,
+				"swap":    0,
+				"maxswap": 0,
+				"disk":    13980000000,
+				"maxdisk": 20960000000,
+				"uptime":  2069716,
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	status, err := client.LXCStatus(context.Background(), "pve-g3-1", 104)
+	if err != nil {
+		t.Fatalf("LXCStatus() error = %v", err)
+	}
+	if gotPath != "/api2/json/nodes/pve-g3-1/lxc/104/status/current" {
+		t.Errorf("path = %q, want .../lxc/104/status/current", gotPath)
+	}
+	if status.Status != "running" || status.CPUs != 4 || status.MaxMem != 6500000000 || status.MaxDisk != 20960000000 {
+		t.Errorf("LXCStatus() = %+v, unexpected values", status)
+	}
+}
+
+func TestClientLXCStatusLooseNumericStrings(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": map[string]any{
+				"status":  "stopped",
+				"mem":     "0",
+				"maxmem":  "6500000000",
+				"swap":    "0",
+				"maxswap": "0",
+				"disk":    "0",
+				"maxdisk": "20960000000",
+				"uptime":  "0",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	status, err := client.LXCStatus(context.Background(), "pve1", 101)
+	if err != nil {
+		t.Fatalf("LXCStatus() error = %v", err)
+	}
+	if status.MaxMem != 6500000000 || status.MaxDisk != 20960000000 {
+		t.Errorf("LXCStatus() = %+v, want string-encoded numerics parsed", status)
+	}
+}
+
+func TestClientLXCInterfacesOmitsLoopback(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{
+				{"name": "lo", "hwaddr": "00:00:00:00:00:00", "inet": "127.0.0.1/8", "inet6": "::1/128"},
+				{"name": "eth0", "hwaddr": "bc:24:11:87:d8:27", "inet": "192.168.1.24/24", "inet6": "fe80::be24:11ff:feac:5f59/64"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	interfaces, err := client.LXCInterfaces(context.Background(), "pve-g3-1", 104)
+	if err != nil {
+		t.Fatalf("LXCInterfaces() error = %v", err)
+	}
+	if gotPath != "/api2/json/nodes/pve-g3-1/lxc/104/interfaces" {
+		t.Errorf("path = %q, want .../lxc/104/interfaces", gotPath)
+	}
+	if len(interfaces) != 1 || interfaces[0].Name != "eth0" {
+		t.Fatalf("LXCInterfaces() = %+v, want a single eth0 entry (lo filtered out)", interfaces)
+	}
+	if interfaces[0].Inet != "192.168.1.24/24" || interfaces[0].Inet6 != "fe80::be24:11ff:feac:5f59/64" {
+		t.Errorf("LXCInterfaces()[0] = %+v, unexpected inet/inet6", interfaces[0])
+	}
+}
+
+func TestClientLXCInterfacesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.LXCInterfaces(context.Background(), "pve1", 101); err == nil {
+		t.Error("LXCInterfaces() error = nil, want non-nil for a stopped/unreachable container")
+	}
+}
+
 func TestClientPutConfigDigestMismatchStructuredError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
