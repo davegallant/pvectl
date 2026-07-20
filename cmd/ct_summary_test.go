@@ -32,12 +32,14 @@ func TestRenderSummaryRunningContainer(t *testing.T) {
 		"0.37% of 4 CPUs",
 		"22.62% (1.4G of 6.1G)",
 		"SWAP usage", "N/A",
-		"192.168.1.24",
-		"fe80::be24:11ff:feac:5f59",
+		"eth0: 192.168.1.24",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("renderSummary() = %q, want it to contain %q", got, want)
 		}
+	}
+	if strings.Contains(got, "fe80::") {
+		t.Errorf("renderSummary() = %q, want link-local IPv6 filtered out", got)
 	}
 }
 

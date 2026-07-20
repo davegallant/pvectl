@@ -8,7 +8,7 @@
 - `pvectl ct enter`/`pvectl qm enter` gain an API-based console method (`--method api`, or set as default with `pvectl setup`) as an alternative to the default SSH path — opens Proxmox's termproxy websocket directly over the stored API token, so no SSH access to the node is required.
 - Added `pvectl config view`: prints the on-disk config as YAML.
 - `pvectl ct exec`: run a command inside a container non-interactively over SSH (`pvectl ct exec <name-or-vmid> -- <command...>`). Tab completion for the command's own arguments (e.g. `pvectl ct exec <ct> -- cat docker-comp<TAB>`) SSHes into the container to list matching remote paths.
-- Added `pvectl ct summary`
+- Added `pvectl ct summary` and `pvectl qm summary`
 
 ## 0.1.0
 

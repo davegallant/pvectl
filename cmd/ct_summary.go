@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net"
 	"strings"
 	"text/tabwriter"
 
@@ -67,20 +68,33 @@ func renderSummary(c api.Container, status api.LXCStatus, config api.Config, int
 	_, _ = fmt.Fprintf(tw, "Bootdisk size\t%s\n", formatUsage(status.Disk, status.MaxDisk))
 	_ = tw.Flush()
 
-	var ips []string
+	// IPs are grouped by interface and link-local addresses (IPv6
+	// fe80::/10, IPv4 169.254.0.0/16) are dropped — mirrors qm summary's
+	// renderVMSummary. A container usually has only one real NIC, so this
+	// rarely matters here, but it keeps the two commands' output
+	// consistent and costs nothing on the common case.
+	var ifaceLines []string
 	for _, iface := range interfaces {
-		if ip := stripCIDR(iface.Inet); ip != "" {
+		var ips []string
+		for _, raw := range []string{iface.Inet, iface.Inet6} {
+			ip := stripCIDR(raw)
+			if ip == "" {
+				continue
+			}
+			if parsed := net.ParseIP(ip); parsed != nil && parsed.IsLinkLocalUnicast() {
+				continue
+			}
 			ips = append(ips, ip)
 		}
-		if ip := stripCIDR(iface.Inet6); ip != "" {
-			ips = append(ips, ip)
+		if len(ips) > 0 {
+			ifaceLines = append(ifaceLines, fmt.Sprintf("  %s: %s", iface.Name, strings.Join(ips, ", ")))
 		}
 	}
-	if len(ips) > 0 {
+	if len(ifaceLines) > 0 {
 		_, _ = fmt.Fprintln(&buf)
 		_, _ = fmt.Fprintln(&buf, "IPs:")
-		for _, ip := range ips {
-			_, _ = fmt.Fprintf(&buf, "  %s\n", ip)
+		for _, line := range ifaceLines {
+			_, _ = fmt.Fprintln(&buf, line)
 		}
 	}
 
