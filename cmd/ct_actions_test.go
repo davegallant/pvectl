@@ -105,6 +105,40 @@ func TestRunReboot(t *testing.T) {
 	}
 }
 
+// TestRunTemplateSkipConfirm confirms ctTemplateYes=true never touches
+// stdin and reaches the template API directly — same "flags make it fully
+// non-interactive" path as TestRunDeleteContainerSkipConfirm.
+func TestRunTemplateSkipConfirm(t *testing.T) {
+	var gotPath, gotMethod string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": nil})
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
+	c := api.Container{VMID: 101, Name: "web", Node: "pve1"}
+
+	ctTemplateYes = true
+	defer func() { ctTemplateYes = false }()
+	if err := runTemplate(client, c); err != nil {
+		t.Fatalf("runTemplate() error = %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want POST", gotMethod)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101/template" {
+		t.Errorf("path = %q, want .../lxc/101/template", gotPath)
+	}
+}
+
+func TestTemplateCommandRegistered(t *testing.T) {
+	if _, _, err := rootCmd.Find([]string{"ct", "template"}); err != nil {
+		t.Errorf("rootCmd.Find([ct template]) error = %v", err)
+	}
+}
+
 func TestSimpleActionCommandsRegistered(t *testing.T) {
 	for _, name := range []string{"start", "stop", "reboot", "unlock"} {
 		found, _, err := rootCmd.Find([]string{"ct", name})

@@ -105,6 +105,39 @@ func TestRunRebootVM(t *testing.T) {
 	}
 }
 
+// TestRunTemplateVMSkipConfirm mirrors TestRunTemplateSkipConfirm for
+// QEMU VMs.
+func TestRunTemplateVMSkipConfirm(t *testing.T) {
+	var gotPath, gotMethod string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": nil})
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
+	v := api.VM{VMID: 201, Name: "vm01", Node: "pve1"}
+
+	qmTemplateYes = true
+	defer func() { qmTemplateYes = false }()
+	if err := runTemplateVM(client, v); err != nil {
+		t.Fatalf("runTemplateVM() error = %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want POST", gotMethod)
+	}
+	if gotPath != "/api2/json/nodes/pve1/qemu/201/template" {
+		t.Errorf("path = %q, want .../qemu/201/template", gotPath)
+	}
+}
+
+func TestTemplateVMCommandRegistered(t *testing.T) {
+	if _, _, err := rootCmd.Find([]string{"qm", "template"}); err != nil {
+		t.Errorf("rootCmd.Find([qm template]) error = %v", err)
+	}
+}
+
 func TestSimpleVMActionCommandsRegistered(t *testing.T) {
 	for _, name := range []string{"start", "stop", "reboot", "unlock"} {
 		found, _, err := rootCmd.Find([]string{"qm", name})

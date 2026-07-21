@@ -106,6 +106,27 @@ func TestClientSnapshot(t *testing.T) {
 	}
 }
 
+func TestClientTemplateContainer(t *testing.T) {
+	var gotPath, gotMethod string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": nil})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if err := client.TemplateContainer(context.Background(), "pve1", 101); err != nil {
+		t.Fatalf("TemplateContainer() error = %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want POST", gotMethod)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101/template" {
+		t.Errorf("path = %q, want .../lxc/101/template", gotPath)
+	}
+}
+
 func TestClientResizeContainer(t *testing.T) {
 	var gotPath, gotMethod, gotBody string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `pvectl ct template`/`pvectl qm template`: convert a container/VM to a template (irreversible — requires typing `yes` to confirm, or `-y`/`--yes` to skip), matching `pct template`/`qm template`
 - Added `pvectl ct unlock`/`pvectl qm unlock`: clear a container's/VM's lock, left behind by a crashed or interrupted task. Runs over SSH (like `ct enter`/`ct config append`), since Proxmox's REST API has no way to remove a lock — `pct unlock`/`qm unlock` only ever run locally on the node
 - Added `pvectl ct clone`/`pvectl qm clone`: clone a container/VM (full or linked), with flags for `--newid`, `--hostname`/`--name`, `--storage`, `--full`, `--target`, `--pool`, `--description`, and `--snapname`
 - Added `pvectl ct resize`: grow a container disk (e.g. `pvectl ct resize myct --size +2G` to grow the rootfs)

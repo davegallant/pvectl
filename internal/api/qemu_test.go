@@ -207,6 +207,27 @@ func TestClientMigrateVMStoppedOmitsOnline(t *testing.T) {
 	}
 }
 
+func TestClientTemplateVM(t *testing.T) {
+	var gotPath, gotMethod string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": nil})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if err := client.TemplateVM(context.Background(), "pve1", 201); err != nil {
+		t.Fatalf("TemplateVM() error = %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want POST", gotMethod)
+	}
+	if gotPath != "/api2/json/nodes/pve1/qemu/201/template" {
+		t.Errorf("path = %q, want .../qemu/201/template", gotPath)
+	}
+}
+
 func TestClientResizeVM(t *testing.T) {
 	var gotPath, gotMethod, gotBody string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

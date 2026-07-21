@@ -326,6 +326,19 @@ func (c *Client) LXCStatus(ctx context.Context, node string, vmid int) (LXCStatu
 	}, nil
 }
 
+// TemplateContainer converts vmid on node into a template, matching `pct
+// template <vmid>`. This is a one-way conversion: Proxmox marks the
+// container as a template (preventing it from being started again) and
+// converts its rootfs into a base image other clones can share, but
+// there's no supported API path back to a regular container. Unlike
+// start/stop/clone/etc., pve-container's own template endpoint runs
+// synchronously (no forked task worker) and returns no data, so this
+// returns only an error — same shape as PutConfig.
+func (c *Client) TemplateContainer(ctx context.Context, node string, vmid int) error {
+	path := fmt.Sprintf("/nodes/%s/lxc/%d/template", node, vmid)
+	return c.do(ctx, http.MethodPost, path, nil, nil)
+}
+
 // LXCInterface is one network interface reported by
 // GET /nodes/{node}/lxc/{vmid}/interfaces. Inet/Inet6 include Proxmox's
 // CIDR suffix (e.g. "192.168.1.24/24") as returned by the API.

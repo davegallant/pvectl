@@ -85,6 +85,28 @@ func runResizeVM(client *api.Client, v api.VM) error {
 	return nil
 }
 
+// qmTemplateYes is ctTemplateYes's mirror for QEMU VMs.
+var qmTemplateYes bool
+
+// runTemplateVM is runTemplate's mirror for QEMU VMs — see its comment.
+func runTemplateVM(client *api.Client, v api.VM) error {
+	fmt.Printf("about to convert VM %s (%d) to a template — this cannot be undone\n", v.Name, v.VMID)
+	if !qmTemplateYes {
+		fmt.Print("type 'yes' to confirm: ")
+		reader := bufio.NewReader(os.Stdin)
+		line, _ := reader.ReadString('\n')
+		if strings.TrimSpace(line) != "yes" {
+			fmt.Println("aborted, VM not converted")
+			return nil
+		}
+	}
+	if err := client.TemplateVM(context.Background(), v.Node, v.VMID); err != nil {
+		return fmt.Errorf("converting %s (%d) to a template: %w", v.Name, v.VMID, err)
+	}
+	fmt.Printf("converted %s (%d) to a template\n", v.Name, v.VMID)
+	return nil
+}
+
 // qmSnapshotName is ctSnapshotName's mirror for QEMU VMs — see its comment.
 var qmSnapshotName string
 
@@ -310,6 +332,10 @@ func init() {
 	qmResizeCmd.Flags().StringVar(&qmResizeDisk, "disk", "scsi0", `disk to resize (e.g. "scsi0", "virtio0")`)
 	qmResizeCmd.Flags().StringVar(&qmResizeSize, "size", "", `new size: "+2G" to grow by 2GB, or "10G" to set the total size (required)`)
 	qmCmd.AddCommand(qmResizeCmd)
+
+	qmTemplateCmd := newSimpleVMActionCmd("template", "Convert a VM to a template (irreversible)", runTemplateVM)
+	qmTemplateCmd.Flags().BoolVarP(&qmTemplateYes, "yes", "y", false, "skip the confirmation prompt")
+	qmCmd.AddCommand(qmTemplateCmd)
 
 	// Mirrors actions.go's ct registration — no top-level `qm backup`/
 	// `qm snapshot`; creation nests under the plural group command like

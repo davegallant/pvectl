@@ -319,6 +319,14 @@ func (c *Client) QemuStatus(ctx context.Context, node string, vmid int) (VMStatu
 	}, nil
 }
 
+// TemplateVM converts vmid on node into a template, matching
+// `qm template <vmid>` — mirrors TemplateContainer exactly (one-way
+// conversion, synchronous API call with no task UPID).
+func (c *Client) TemplateVM(ctx context.Context, node string, vmid int) error {
+	path := fmt.Sprintf("/nodes/%s/qemu/%d/template", node, vmid)
+	return c.do(ctx, http.MethodPost, path, nil, nil)
+}
+
 // QemuInterface is one network interface reported by the QEMU guest agent
 // via GET /nodes/{node}/qemu/{vmid}/agent/network-get-interfaces. Unlike
 // LXCInterface's fixed Inet/Inet6 pair, the guest agent reports an

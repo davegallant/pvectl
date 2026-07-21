@@ -67,6 +67,34 @@ func runUnlock(_ *api.Client, c api.Container) error {
 	return nil
 }
 
+// ctTemplateYes backs `ct template`'s `-y`/`--yes` flag, same convention
+// as ctDeleteYes.
+var ctTemplateYes bool
+
+// runTemplate converts c into a template. Like runDeleteContainer, this
+// requires the user to type "yes" before proceeding — there's no
+// supported way back to a regular container (see api.TemplateContainer) —
+// unless skipped via -y/--yes. Prints its own success line rather than
+// going through runProgressAction since the underlying API call is
+// synchronous, not a pollable Proxmox task.
+func runTemplate(client *api.Client, c api.Container) error {
+	fmt.Printf("about to convert container %s (%d) to a template — this cannot be undone\n", c.Name, c.VMID)
+	if !ctTemplateYes {
+		fmt.Print("type 'yes' to confirm: ")
+		reader := bufio.NewReader(os.Stdin)
+		line, _ := reader.ReadString('\n')
+		if strings.TrimSpace(line) != "yes" {
+			fmt.Println("aborted, container not converted")
+			return nil
+		}
+	}
+	if err := client.TemplateContainer(context.Background(), c.Node, c.VMID); err != nil {
+		return fmt.Errorf("converting %s (%d) to a template: %w", c.Name, c.VMID, err)
+	}
+	fmt.Printf("converted %s (%d) to a template\n", c.Name, c.VMID)
+	return nil
+}
+
 // ctSnapshotName backs `ct snapshots create`'s `--name` flag, which skips
 // the interactive name prompt.
 var ctSnapshotName string
@@ -306,6 +334,10 @@ func init() {
 	ctResizeCmd.Flags().StringVar(&ctResizeDisk, "disk", "rootfs", `disk to resize (e.g. "rootfs", "mp0")`)
 	ctResizeCmd.Flags().StringVar(&ctResizeSize, "size", "", `new size: "+2G" to grow by 2GB, or "10G" to set the total size (required)`)
 	ctCmd.AddCommand(ctResizeCmd)
+
+	ctTemplateCmd := newSimpleActionCmd("template", "Convert a container to a template (irreversible)", runTemplate)
+	ctTemplateCmd.Flags().BoolVarP(&ctTemplateYes, "yes", "y", false, "skip the confirmation prompt")
+	ctCmd.AddCommand(ctTemplateCmd)
 
 	// Every other multi-verb resource (backups, snapshots) nests all of
 	// its verbs — including creation — under the plural group command
