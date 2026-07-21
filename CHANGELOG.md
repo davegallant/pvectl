@@ -5,6 +5,7 @@
 - Added `pvectl ct resize`: grow a container disk (e.g. `pvectl ct resize myct --size +2G` to grow the rootfs)
 - Added `pvectl qm resize`: grow a VM disk (e.g. `pvectl qm resize myvm --size +2G` to grow scsi0)
 - Added --node flag to `pvectl ct list`/`pvectl qm list` to show only containers/VMs on a single node
+- `pvectl ct delete`/`pvectl qm delete` renamed to `pvectl ct destroy`/`pvectl qm destroy`, matching native `pct destroy`/`qm destroy`; `delete` remains as an alias
 
 ## 0.2.0
 

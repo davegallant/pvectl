@@ -37,6 +37,9 @@ func TestRunDeleteVMSkipConfirm(t *testing.T) {
 }
 
 func TestQmDeleteCommandRegistered(t *testing.T) {
+	if _, _, err := rootCmd.Find([]string{"qm", "destroy"}); err != nil {
+		t.Errorf("rootCmd.Find([qm destroy]) error = %v", err)
+	}
 	if _, _, err := rootCmd.Find([]string{"qm", "delete"}); err != nil {
 		t.Errorf("rootCmd.Find([qm delete]) error = %v", err)
 	}

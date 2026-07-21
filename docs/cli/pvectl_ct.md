@@ -21,7 +21,7 @@ Manage containers
 * [pvectl ct backups](pvectl_ct_backups.md)	 - Manage a container's backups
 * [pvectl ct config](pvectl_ct_config.md)	 - Manage a container's config
 * [pvectl ct create](pvectl_ct_create.md)	 - Create a new LXC container
-* [pvectl ct delete](pvectl_ct_delete.md)	 - Permanently delete a container
+* [pvectl ct destroy](pvectl_ct_destroy.md)	 - Permanently delete a container
 * [pvectl ct enter](pvectl_ct_enter.md)	 - Enter a container's shell via SSH (see --method for the API alternative)
 * [pvectl ct exec](pvectl_ct_exec.md)	 - Run a command inside a container over SSH, non-interactively
 * [pvectl ct list](pvectl_ct_list.md)	 - List containers

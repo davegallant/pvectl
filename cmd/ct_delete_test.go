@@ -39,6 +39,9 @@ func TestRunDeleteContainerSkipConfirm(t *testing.T) {
 }
 
 func TestDeleteCommandRegistered(t *testing.T) {
+	if _, _, err := rootCmd.Find([]string{"ct", "destroy"}); err != nil {
+		t.Errorf("rootCmd.Find([ct destroy]) error = %v", err)
+	}
 	if _, _, err := rootCmd.Find([]string{"ct", "delete"}); err != nil {
 		t.Errorf("rootCmd.Find([ct delete]) error = %v", err)
 	}

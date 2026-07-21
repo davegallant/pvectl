@@ -21,7 +21,7 @@ Manage QEMU VMs
 * [pvectl qm backups](pvectl_qm_backups.md)	 - Manage a VM's backups
 * [pvectl qm config](pvectl_qm_config.md)	 - Manage a VM's config
 * [pvectl qm create](pvectl_qm_create.md)	 - Create a new QEMU VM
-* [pvectl qm delete](pvectl_qm_delete.md)	 - Permanently delete a VM
+* [pvectl qm destroy](pvectl_qm_destroy.md)	 - Permanently delete a VM
 * [pvectl qm enter](pvectl_qm_enter.md)	 - Attach to a VM's serial console via SSH (see --method for the API alternative)
 * [pvectl qm list](pvectl_qm_list.md)	 - List VMs
 * [pvectl qm migrate](pvectl_qm_migrate.md)	 - Migrate a VM to another node

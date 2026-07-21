@@ -245,8 +245,8 @@ These were each found via live debugging against a real Proxmox cluster
   different file. `qmConfigCmd` exists purely to hold `edit` today (no
   `append` mirror — see above), not because `qm` needs its own config
   group otherwise.
-- `qm delete` (`cmd/qm_delete.go`) mirrors `ct delete` (`--purge`,
-  `-y`/`--yes`) but deliberately has
+- `qm destroy` (`cmd/qm_delete.go`, aliased `delete`) mirrors `ct destroy`
+  (`--purge`, `-y`/`--yes`) but deliberately has
   no `--force`: Proxmox's own `DELETE .../qemu/{vmid}` has no
   force-destroy-while-running param the way `DELETE .../lxc/{vmid}` does
   (see `api.DeleteVM`'s comment) — a running VM must be stopped first,
@@ -337,15 +337,15 @@ These were each found via live debugging against a real Proxmox cluster
   existed for `qm backups restore`) rather than duplicating
   `promptRootfsStorage`'s "rootdir"-content filtering, since a QEMU disk
   and an LXC rootfs need different storage content types.
-- `ct delete` (`cmd/ct_delete.go`) follows the `<name-or-vmid>`/
-  `resolveContainer` convention normally (unlike `ct create`, it acts on
-  an existing guest), via `newSimpleActionCmd` same as start/stop/backup/
-  snapshot. Where `ct delete` deviates
-  from the rest: its own `-y`/`--yes` + `--purge` flags follow
-  ctBackupsDeleteYes/ctSnapshotsDeleteYes's "only the direct subcommand
-  registers these, so the flag vars stay zero-valued when unused" pattern.
-  Confirmation is the same "type 'yes', no bare 'y', no default-yes"
-  discipline as `backups delete`/`snapshots delete`.
+- `ct destroy` (`cmd/ct_delete.go`, aliased `delete` — matches native
+  `pct destroy`) follows the `<name-or-vmid>`/`resolveContainer`
+  convention normally (unlike `ct create`, it acts on an existing guest),
+  via `newSimpleActionCmd` same as start/stop/backup/snapshot. Where
+  `ct destroy` deviates from the rest: its own `-y`/`--yes` + `--purge`
+  flags follow ctBackupsDeleteYes/ctSnapshotsDeleteYes's "only the direct
+  subcommand registers these, so the flag vars stay zero-valued when
+  unused" pattern. Confirmation is the same "type 'yes', no bare 'y', no
+  default-yes" discipline as `backups delete`/`snapshots delete`.
 - Every new feature gets a bullet under `## Unreleased` in `CHANGELOG.md`
   (create that heading above the latest version if it doesn't exist yet).
   Bug fixes/internal refactors don't need an entry unless user-visible.
