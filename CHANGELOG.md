@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `pvectl ct clone`: clone a container (full or linked), with flags for `--newid`, `--hostname`, `--storage`, `--full`, `--target`, `--pool`, `--description`, and `--snapname`
 - Added `pvectl ct resize`: grow a container disk (e.g. `pvectl ct resize myct --size +2G` to grow the rootfs)
 - Added `pvectl qm resize`: grow a VM disk (e.g. `pvectl qm resize myvm --size +2G` to grow scsi0)
 - Added --node flag to `pvectl ct list`/`pvectl qm list` to show only containers/VMs on a single node

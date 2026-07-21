@@ -124,6 +124,51 @@ func (c *Client) RestoreContainer(ctx context.Context, node string, vmid int, ar
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }
 
+// CloneContainerParams holds the pct-clone parameters `pvectl ct clone`
+// exposes. Full is sent as "1" only when true — omitted otherwise, so
+// Proxmox falls back to its own default (full copy for a normal
+// container, linked clone for a template), matching pct's own behavior.
+type CloneContainerParams struct {
+	TargetVMID  int
+	Hostname    string
+	Storage     string
+	Full        bool
+	Target      string
+	Pool        string
+	Description string
+	SnapName    string
+}
+
+// CloneContainer clones vmid on node into a new container p.TargetVMID,
+// returning the Proxmox task UPID — like CreateContainer, cloning is a
+// background task (copying disks), not an instant call.
+func (c *Client) CloneContainer(ctx context.Context, node string, vmid int, p CloneContainerParams) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/lxc/%d/clone", node, vmid)
+	form := url.Values{"newid": {strconv.Itoa(p.TargetVMID)}}
+	if p.Hostname != "" {
+		form.Set("hostname", p.Hostname)
+	}
+	if p.Storage != "" {
+		form.Set("storage", p.Storage)
+	}
+	if p.Full {
+		form.Set("full", "1")
+	}
+	if p.Target != "" {
+		form.Set("target", p.Target)
+	}
+	if p.Pool != "" {
+		form.Set("pool", p.Pool)
+	}
+	if p.Description != "" {
+		form.Set("description", p.Description)
+	}
+	if p.SnapName != "" {
+		form.Set("snapname", p.SnapName)
+	}
+	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
+}
+
 // ResizeContainer grows disk (e.g. "rootfs", "mp0") on vmid, returning the
 // Proxmox task UPID — like `pct resize`, this only grows a disk, it can't
 // shrink one. size takes Proxmox's own size syntax: a "+"-prefixed delta

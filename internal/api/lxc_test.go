@@ -302,6 +302,76 @@ func TestRestoreContainerForce(t *testing.T) {
 	}
 }
 
+func TestClientCloneContainer(t *testing.T) {
+	var gotPath, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	upid, err := client.CloneContainer(context.Background(), "pve1", 101, CloneContainerParams{
+		TargetVMID:  105,
+		Hostname:    "web01-clone",
+		Storage:     "local-lvm",
+		Full:        true,
+		Target:      "pve2",
+		Pool:        "eng",
+		Description: "clone for testing",
+		SnapName:    "pre-upgrade",
+	})
+	if err != nil {
+		t.Fatalf("CloneContainer() error = %v", err)
+	}
+	if upid != "UPID:..." {
+		t.Errorf("CloneContainer() upid = %q", upid)
+	}
+	if gotPath != "/api2/json/nodes/pve1/lxc/101/clone" {
+		t.Errorf("path = %q, want /api2/json/nodes/pve1/lxc/101/clone", gotPath)
+	}
+
+	values, err := url.ParseQuery(gotBody)
+	if err != nil {
+		t.Fatalf("ParseQuery(%q) error = %v", gotBody, err)
+	}
+	want := map[string]string{
+		"newid":       "105",
+		"hostname":    "web01-clone",
+		"storage":     "local-lvm",
+		"full":        "1",
+		"target":      "pve2",
+		"pool":        "eng",
+		"description": "clone for testing",
+		"snapname":    "pre-upgrade",
+	}
+	for k, v := range want {
+		if values.Get(k) != v {
+			t.Errorf("body[%q] = %q, want %q", k, values.Get(k), v)
+		}
+	}
+}
+
+func TestClientCloneContainerOmitsOptionalFields(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.CloneContainer(context.Background(), "pve1", 101, CloneContainerParams{TargetVMID: 105}); err != nil {
+		t.Fatalf("CloneContainer() error = %v", err)
+	}
+	if gotBody != "newid=105" {
+		t.Errorf("body = %q, want newid=105 with every optional field omitted", gotBody)
+	}
+}
+
 func TestDeleteContainer(t *testing.T) {
 	var gotMethod, gotPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
