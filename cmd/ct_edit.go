@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var editCmd = &cobra.Command{
+var ctEditCmd = &cobra.Command{
 	Use:               "edit <name-or-vmid>",
 	Short:             "Edit a container's config in $EDITOR",
 	Args:              requireArgs("name-or-vmid"),
@@ -32,7 +32,7 @@ var editCmd = &cobra.Command{
 }
 
 func init() {
-	ctConfigCmd.AddCommand(editCmd)
+	ctConfigCmd.AddCommand(ctEditCmd)
 }
 
 func runEdit(client *api.Client, node string, vmid int) error {

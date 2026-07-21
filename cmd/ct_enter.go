@@ -6,9 +6,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var enterMethod string
+var ctEnterMethod string
 
-var enterCmd = &cobra.Command{
+var ctEnterCmd = &cobra.Command{
 	Use:               "enter <name-or-vmid>",
 	Short:             "Enter a container's shell via SSH (see --method for the API alternative)",
 	Args:              requireArgs("name-or-vmid"),
@@ -22,11 +22,11 @@ var enterCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return enterConsole(client, c.Node, c.VMID, api.KindContainer, ssh.Enter, enterMethod)
+		return enterConsole(client, c.Node, c.VMID, api.KindContainer, ssh.Enter, ctEnterMethod)
 	},
 }
 
 func init() {
-	enterCmd.Flags().StringVar(&enterMethod, "method", "", `override the configured console method for this run ("ssh" or "api")`)
-	ctCmd.AddCommand(enterCmd)
+	ctEnterCmd.Flags().StringVar(&ctEnterMethod, "method", "", `override the configured console method for this run ("ssh" or "api")`)
+	ctCmd.AddCommand(ctEnterCmd)
 }
