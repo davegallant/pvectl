@@ -59,7 +59,7 @@ func renameContainer(client *api.Client, c api.Container, newName string) error 
 }
 
 func init() {
-	ctRenameCmd := newSimpleActionCmd("rename", "Rename a container", runRename)
+	ctRenameCmd := newSimpleActionCmd("rename", "Rename a container", mutationMutating, runRename)
 	ctRenameCmd.Flags().StringVar(&ctRenameName, "name", "", "new hostname (skips the interactive prompt when set, along with the name-or-vmid argument)")
 	ctCmd.AddCommand(ctRenameCmd)
 }

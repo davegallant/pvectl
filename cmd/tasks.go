@@ -27,9 +27,10 @@ var tasksCmd = &cobra.Command{
 }
 
 var tasksListCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"ls"},
-	Short:   "List recent cluster tasks",
+	Use:         "list",
+	Aliases:     []string{"ls"},
+	Short:       "List recent cluster tasks",
+	Annotations: mutationAnnotation(mutationSafe),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

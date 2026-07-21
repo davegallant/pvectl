@@ -18,9 +18,10 @@ var qmCmd = &cobra.Command{
 var qmListNode string
 
 var qmListCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"ls"},
-	Short:   "List VMs",
+	Use:         "list",
+	Aliases:     []string{"ls"},
+	Short:       "List VMs",
+	Annotations: mutationAnnotation(mutationSafe),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

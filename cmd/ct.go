@@ -18,9 +18,10 @@ var ctCmd = &cobra.Command{
 var ctListNode string
 
 var ctListCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"ls"},
-	Short:   "List containers",
+	Use:         "list",
+	Aliases:     []string{"ls"},
+	Short:       "List containers",
+	Annotations: mutationAnnotation(mutationSafe),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

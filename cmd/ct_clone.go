@@ -22,6 +22,7 @@ var (
 var ctCloneCmd = &cobra.Command{
 	Use:               "clone <name-or-vmid>",
 	Short:             "Clone a container",
+	Annotations:       mutationAnnotation(mutationMutating),
 	Args:              requireArgs("name-or-vmid"),
 	ValidArgsFunction: completeContainerNames,
 	RunE: func(cmd *cobra.Command, args []string) error {

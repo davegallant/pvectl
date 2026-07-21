@@ -16,6 +16,7 @@ import (
 var ctEditCmd = &cobra.Command{
 	Use:               "edit <name-or-vmid>",
 	Short:             "Edit a container's config in $EDITOR",
+	Annotations:       mutationAnnotation(mutationMutating),
 	Args:              requireArgs("name-or-vmid"),
 	ValidArgsFunction: completeContainerNames,
 	RunE: func(cmd *cobra.Command, args []string) error {

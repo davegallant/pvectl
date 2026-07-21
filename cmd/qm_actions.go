@@ -301,10 +301,11 @@ func runRollbackSnapshotVMAction(client *api.Client, v api.VM) error {
 }
 
 // newSimpleVMActionCmd is newSimpleActionCmd's mirror for QEMU VMs.
-func newSimpleVMActionCmd(use, short string, run func(*api.Client, api.VM) error) *cobra.Command {
+func newSimpleVMActionCmd(use, short, level string, run func(*api.Client, api.VM) error) *cobra.Command {
 	return &cobra.Command{
 		Use:               use + " <name-or-vmid>",
 		Short:             short,
+		Annotations:       mutationAnnotation(level),
 		Args:              requireArgs("name-or-vmid"),
 		ValidArgsFunction: completeVMNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -322,18 +323,18 @@ func newSimpleVMActionCmd(use, short string, run func(*api.Client, api.VM) error
 }
 
 func init() {
-	qmCmd.AddCommand(newSimpleVMActionCmd("start", "Start a VM", runStartVM))
-	qmCmd.AddCommand(newSimpleVMActionCmd("stop", "Stop a VM immediately (hard power-off, no ACPI/guest involvement)", runStopVM))
-	qmCmd.AddCommand(newSimpleVMActionCmd("shutdown", "Gracefully shut down a VM (ACPI shutdown, waits on the guest, times out if it never responds)", runShutdownVM))
-	qmCmd.AddCommand(newSimpleVMActionCmd("reboot", "Reboot a VM", runRebootVM))
-	qmCmd.AddCommand(newSimpleVMActionCmd("unlock", "Clear a VM's lock, left behind by a crashed or interrupted task (requires SSH)", runUnlockVM))
+	qmCmd.AddCommand(newSimpleVMActionCmd("start", "Start a VM", mutationMutating, runStartVM))
+	qmCmd.AddCommand(newSimpleVMActionCmd("stop", "Stop a VM immediately (hard power-off, no ACPI/guest involvement)", mutationMutating, runStopVM))
+	qmCmd.AddCommand(newSimpleVMActionCmd("shutdown", "Gracefully shut down a VM (ACPI shutdown, waits on the guest, times out if it never responds)", mutationMutating, runShutdownVM))
+	qmCmd.AddCommand(newSimpleVMActionCmd("reboot", "Reboot a VM", mutationMutating, runRebootVM))
+	qmCmd.AddCommand(newSimpleVMActionCmd("unlock", "Clear a VM's lock, left behind by a crashed or interrupted task (requires SSH)", mutationMutating, runUnlockVM))
 
-	qmResizeCmd := newSimpleVMActionCmd("resize", "Grow a VM disk (cannot shrink)", runResizeVM)
+	qmResizeCmd := newSimpleVMActionCmd("resize", "Grow a VM disk (cannot shrink)", mutationMutating, runResizeVM)
 	qmResizeCmd.Flags().StringVar(&qmResizeDisk, "disk", "scsi0", `disk to resize (e.g. "scsi0", "virtio0")`)
 	qmResizeCmd.Flags().StringVar(&qmResizeSize, "size", "", `new size: "+2G" to grow by 2GB, or "10G" to set the total size (required)`)
 	qmCmd.AddCommand(qmResizeCmd)
 
-	qmTemplateCmd := newSimpleVMActionCmd("template", "Convert a VM to a template (irreversible)", runTemplateVM)
+	qmTemplateCmd := newSimpleVMActionCmd("template", "Convert a VM to a template (irreversible)", mutationDestructive, runTemplateVM)
 	qmTemplateCmd.Flags().BoolVarP(&qmTemplateYes, "yes", "y", false, "skip the confirmation prompt")
 	qmCmd.AddCommand(qmTemplateCmd)
 
@@ -344,11 +345,11 @@ func init() {
 		Use:   "backups",
 		Short: "Manage a VM's backups",
 	}
-	qmBackupCreateCmd := newSimpleVMActionCmd("create", "Create a backup", runBackupVM)
+	qmBackupCreateCmd := newSimpleVMActionCmd("create", "Create a backup", mutationMutating, runBackupVM)
 	qmBackupCreateCmd.Flags().StringVar(&qmBackupStorage, "storage", "", "backup storage target (skips the interactive prompt when set, along with the name-or-vmid argument)")
 	backupsCmd.AddCommand(qmBackupCreateCmd)
-	backupsCmd.AddCommand(newSimpleVMActionCmd("list", "List a VM's backups", runBackupsVM))
-	qmBackupsDeleteCmd := newSimpleVMActionCmd("delete", "Delete one of a VM's backups", runDeleteBackupVMAction)
+	backupsCmd.AddCommand(newSimpleVMActionCmd("list", "List a VM's backups", mutationSafe, runBackupsVM))
+	qmBackupsDeleteCmd := newSimpleVMActionCmd("delete", "Delete one of a VM's backups", mutationDestructive, runDeleteBackupVMAction)
 	qmBackupsDeleteCmd.Flags().StringVar(&qmBackupsDeleteVolID, "volid", "", "backup volid to delete (skips the interactive listing/prompt when set, along with the name-or-vmid argument)")
 	qmBackupsDeleteCmd.Flags().BoolVarP(&qmBackupsDeleteYes, "yes", "y", false, "skip the confirmation prompt")
 	backupsCmd.AddCommand(qmBackupsDeleteCmd)
@@ -356,6 +357,7 @@ func init() {
 	qmBackupRestoreCmd := &cobra.Command{
 		Use:               "restore [name-or-vmid]",
 		Short:             "Restore a VM from a backup",
+		Annotations:       mutationAnnotation(mutationDestructive),
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeVMNames,
 		RunE:              runQmBackupsRestore,
@@ -373,15 +375,15 @@ func init() {
 		Use:   "snapshots",
 		Short: "Manage a VM's snapshots",
 	}
-	qmSnapshotCreateCmd := newSimpleVMActionCmd("create", "Create a snapshot", runSnapshotVM)
+	qmSnapshotCreateCmd := newSimpleVMActionCmd("create", "Create a snapshot", mutationMutating, runSnapshotVM)
 	qmSnapshotCreateCmd.Flags().StringVar(&qmSnapshotName, "snapshot-name", "", "snapshot name (skips the interactive prompt when set, along with the name-or-vmid argument)")
 	snapshotsCmd.AddCommand(qmSnapshotCreateCmd)
-	snapshotsCmd.AddCommand(newSimpleVMActionCmd("list", "List a VM's snapshots", runSnapshotsVMAction))
-	qmSnapshotsDeleteCmd := newSimpleVMActionCmd("delete", "Delete one of a VM's snapshots", runDeleteSnapshotVMAction)
+	snapshotsCmd.AddCommand(newSimpleVMActionCmd("list", "List a VM's snapshots", mutationSafe, runSnapshotsVMAction))
+	qmSnapshotsDeleteCmd := newSimpleVMActionCmd("delete", "Delete one of a VM's snapshots", mutationDestructive, runDeleteSnapshotVMAction)
 	qmSnapshotsDeleteCmd.Flags().StringVar(&qmSnapshotsDeleteName, "snapshot-name", "", "snapshot name to delete (skips the interactive listing/prompt when set, along with the name-or-vmid argument)")
 	qmSnapshotsDeleteCmd.Flags().BoolVarP(&qmSnapshotsDeleteYes, "yes", "y", false, "skip the confirmation prompt")
 	snapshotsCmd.AddCommand(qmSnapshotsDeleteCmd)
-	qmSnapshotsRollbackCmd := newSimpleVMActionCmd("rollback", "Roll back a VM to one of its snapshots", runRollbackSnapshotVMAction)
+	qmSnapshotsRollbackCmd := newSimpleVMActionCmd("rollback", "Roll back a VM to one of its snapshots", mutationDestructive, runRollbackSnapshotVMAction)
 	qmSnapshotsRollbackCmd.Flags().StringVar(&qmSnapshotsRollbackName, "snapshot-name", "", "snapshot name to roll back to (skips the interactive listing/prompt when set, along with the name-or-vmid argument)")
 	qmSnapshotsRollbackCmd.Flags().BoolVarP(&qmSnapshotsRollbackYes, "yes", "y", false, "skip the confirmation prompt")
 	snapshotsCmd.AddCommand(qmSnapshotsRollbackCmd)

@@ -15,9 +15,10 @@ var storageCmd = &cobra.Command{
 }
 
 var storageListCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"ls"},
-	Short:   "Show cluster storage usage and health",
+	Use:         "list",
+	Aliases:     []string{"ls"},
+	Short:       "Show cluster storage usage and health",
+	Annotations: mutationAnnotation(mutationSafe),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

@@ -129,6 +129,7 @@ var ctMigrateTarget string
 var ctMigrateCmd = &cobra.Command{
 	Use:               "migrate <name-or-vmid>",
 	Short:             "Migrate a container to another node",
+	Annotations:       mutationAnnotation(mutationMutating),
 	Args:              requireArgs("name-or-vmid"),
 	ValidArgsFunction: completeContainerNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -169,6 +170,7 @@ var qmMigrateTarget string
 var qmMigrateCmd = &cobra.Command{
 	Use:               "migrate <name-or-vmid>",
 	Short:             "Migrate a VM to another node",
+	Annotations:       mutationAnnotation(mutationMutating),
 	Args:              requireArgs("name-or-vmid"),
 	ValidArgsFunction: completeVMNames,
 	RunE: func(cmd *cobra.Command, args []string) error {

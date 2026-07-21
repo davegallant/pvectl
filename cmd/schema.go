@@ -16,6 +16,33 @@ type schemaFlag struct {
 	Usage     string `json:"usage,omitempty"`
 }
 
+// Mutation levels for a command's "mutation" annotation (see
+// mutationAnnotation): whether running it can change cluster/local state,
+// and if so, whether that change carries destructive-grade risk — either
+// irreversible data loss/a point of no return (delete, rollback, restore-
+// overwrite, template conversion) or an unbounded blast radius (`ct
+// exec`/`ct enter`/`qm enter` hand off to an arbitrary command or an
+// interactive shell, which can do anything up to and including deleting
+// the guest's own filesystem — worse than any single destructive API
+// call, so it gets the same tier). Group commands with no RunE of their
+// own (e.g. `ct`, `ct backups`) carry no annotation and report an empty
+// Mutation in schema output.
+const (
+	mutationSafe        = "safe"        // read-only, never changes state
+	mutationMutating    = "mutating"    // changes state, but reversibly/routinely, with a bounded effect
+	mutationDestructive = "destructive" // irreversible, a point of no return, or an unbounded blast radius
+)
+
+// mutationAnnotationKey is the cobra Command.Annotations key
+// mutationAnnotation sets and schemaSubcommands reads back.
+const mutationAnnotationKey = "mutation"
+
+// mutationAnnotation builds the Annotations map a command's literal sets
+// to record its mutation level for `pvectl schema`.
+func mutationAnnotation(level string) map[string]string {
+	return map[string]string{mutationAnnotationKey: level}
+}
+
 // schemaCommand is one command's entry in `pvectl schema`'s output —
 // its own name/use/flags plus its subcommands, recursively. Global flags
 // inherited from the root (--json/--debug/--verbose) are listed once at
@@ -25,6 +52,7 @@ type schemaCommand struct {
 	Use      string          `json:"use"`
 	Aliases  []string        `json:"aliases,omitempty"`
 	Short    string          `json:"short,omitempty"`
+	Mutation string          `json:"mutation,omitempty"`
 	Flags    []schemaFlag    `json:"flags,omitempty"`
 	Commands []schemaCommand `json:"commands,omitempty"`
 }
@@ -41,8 +69,9 @@ type pvectlSchema struct {
 }
 
 var schemaCmd = &cobra.Command{
-	Use:   "schema",
-	Short: "Print pvectl's command tree (names, flags, descriptions) as JSON, for agent introspection",
+	Use:         "schema",
+	Short:       "Print pvectl's command tree (names, flags, descriptions) as JSON, for agent introspection",
+	Annotations: mutationAnnotation(mutationSafe),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return printJSON(buildSchema(rootCmd))
 	},
@@ -75,11 +104,22 @@ func schemaSubcommands(parent *cobra.Command) []schemaCommand {
 		if c.Hidden || c.Name() == "help" {
 			continue
 		}
+		// Every pvectl-owned runnable command sets its own mutation
+		// annotation explicitly (see mutationSafe/mutationMutating/
+		// mutationDestructive) — the only runnable commands that can reach
+		// here without one are cobra's own auto-generated ones (e.g.
+		// `completion bash`/`zsh`/...), which only ever read local shell
+		// config and never touch the cluster.
+		mutation := c.Annotations[mutationAnnotationKey]
+		if mutation == "" && c.Runnable() {
+			mutation = mutationSafe
+		}
 		out = append(out, schemaCommand{
 			Name:     c.Name(),
 			Use:      c.Use,
 			Aliases:  c.Aliases,
 			Short:    c.Short,
+			Mutation: mutation,
 			Flags:    schemaFlags(c.LocalFlags()),
 			Commands: schemaSubcommands(c),
 		})

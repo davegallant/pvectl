@@ -302,11 +302,14 @@ func runRollbackSnapshotAction(client *api.Client, c api.Container) error {
 
 // newSimpleActionCmd builds a `ct <use> <name-or-vmid>` command: it acts
 // directly on the named/vmid'd container (via resolveContainer/
-// findContainer).
-func newSimpleActionCmd(use, short string, run func(*api.Client, api.Container) error) *cobra.Command {
+// findContainer). level is required (not defaulted) so a newly added
+// action can't accidentally ship unclassified in `pvectl schema` — see
+// mutationSafe/mutationMutating/mutationDestructive in schema.go.
+func newSimpleActionCmd(use, short, level string, run func(*api.Client, api.Container) error) *cobra.Command {
 	return &cobra.Command{
 		Use:               use + " <name-or-vmid>",
 		Short:             short,
+		Annotations:       mutationAnnotation(level),
 		Args:              requireArgs("name-or-vmid"),
 		ValidArgsFunction: completeContainerNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -324,18 +327,18 @@ func newSimpleActionCmd(use, short string, run func(*api.Client, api.Container) 
 }
 
 func init() {
-	ctCmd.AddCommand(newSimpleActionCmd("start", "Start a container", runStart))
-	ctCmd.AddCommand(newSimpleActionCmd("stop", "Stop a container immediately (hard power-off, no graceful attempt)", runStop))
-	ctCmd.AddCommand(newSimpleActionCmd("shutdown", "Gracefully shut down a container (waits on the guest, times out if it never responds)", runShutdown))
-	ctCmd.AddCommand(newSimpleActionCmd("reboot", "Reboot a container", runReboot))
-	ctCmd.AddCommand(newSimpleActionCmd("unlock", "Clear a container's lock, left behind by a crashed or interrupted task (requires SSH)", runUnlock))
+	ctCmd.AddCommand(newSimpleActionCmd("start", "Start a container", mutationMutating, runStart))
+	ctCmd.AddCommand(newSimpleActionCmd("stop", "Stop a container immediately (hard power-off, no graceful attempt)", mutationMutating, runStop))
+	ctCmd.AddCommand(newSimpleActionCmd("shutdown", "Gracefully shut down a container (waits on the guest, times out if it never responds)", mutationMutating, runShutdown))
+	ctCmd.AddCommand(newSimpleActionCmd("reboot", "Reboot a container", mutationMutating, runReboot))
+	ctCmd.AddCommand(newSimpleActionCmd("unlock", "Clear a container's lock, left behind by a crashed or interrupted task (requires SSH)", mutationMutating, runUnlock))
 
-	ctResizeCmd := newSimpleActionCmd("resize", "Grow a container disk (cannot shrink)", runResize)
+	ctResizeCmd := newSimpleActionCmd("resize", "Grow a container disk (cannot shrink)", mutationMutating, runResize)
 	ctResizeCmd.Flags().StringVar(&ctResizeDisk, "disk", "rootfs", `disk to resize (e.g. "rootfs", "mp0")`)
 	ctResizeCmd.Flags().StringVar(&ctResizeSize, "size", "", `new size: "+2G" to grow by 2GB, or "10G" to set the total size (required)`)
 	ctCmd.AddCommand(ctResizeCmd)
 
-	ctTemplateCmd := newSimpleActionCmd("template", "Convert a container to a template (irreversible)", runTemplate)
+	ctTemplateCmd := newSimpleActionCmd("template", "Convert a container to a template (irreversible)", mutationDestructive, runTemplate)
 	ctTemplateCmd.Flags().BoolVarP(&ctTemplateYes, "yes", "y", false, "skip the confirmation prompt")
 	ctCmd.AddCommand(ctTemplateCmd)
 
@@ -349,11 +352,11 @@ func init() {
 		Use:   "backups",
 		Short: "Manage a container's backups",
 	}
-	ctBackupCreateCmd := newSimpleActionCmd("create", "Create a backup", runBackup)
+	ctBackupCreateCmd := newSimpleActionCmd("create", "Create a backup", mutationMutating, runBackup)
 	ctBackupCreateCmd.Flags().StringVar(&ctBackupStorage, "storage", "", "backup storage target (skips the interactive prompt when set, along with the name-or-vmid argument)")
 	backupsCmd.AddCommand(ctBackupCreateCmd)
-	backupsCmd.AddCommand(newSimpleActionCmd("list", "List a container's backups", runBackups))
-	ctBackupsDeleteCmd := newSimpleActionCmd("delete", "Delete one of a container's backups", runDeleteBackupAction)
+	backupsCmd.AddCommand(newSimpleActionCmd("list", "List a container's backups", mutationSafe, runBackups))
+	ctBackupsDeleteCmd := newSimpleActionCmd("delete", "Delete one of a container's backups", mutationDestructive, runDeleteBackupAction)
 	ctBackupsDeleteCmd.Flags().StringVar(&ctBackupsDeleteVolID, "volid", "", "backup volid to delete (skips the interactive listing/prompt when set, along with the name-or-vmid argument)")
 	ctBackupsDeleteCmd.Flags().BoolVarP(&ctBackupsDeleteYes, "yes", "y", false, "skip the confirmation prompt")
 	backupsCmd.AddCommand(ctBackupsDeleteCmd)
@@ -361,6 +364,7 @@ func init() {
 	ctBackupRestoreCmd := &cobra.Command{
 		Use:               "restore [name-or-vmid]",
 		Short:             "Restore a container from a backup",
+		Annotations:       mutationAnnotation(mutationDestructive),
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeContainerNames,
 		RunE:              runCtBackupsRestore,
@@ -378,15 +382,15 @@ func init() {
 		Use:   "snapshots",
 		Short: "Manage a container's snapshots",
 	}
-	ctSnapshotCreateCmd := newSimpleActionCmd("create", "Create a snapshot", runSnapshot)
+	ctSnapshotCreateCmd := newSimpleActionCmd("create", "Create a snapshot", mutationMutating, runSnapshot)
 	ctSnapshotCreateCmd.Flags().StringVar(&ctSnapshotName, "snapshot-name", "", "snapshot name (skips the interactive prompt when set, along with the name-or-vmid argument)")
 	snapshotsCmd.AddCommand(ctSnapshotCreateCmd)
-	snapshotsCmd.AddCommand(newSimpleActionCmd("list", "List a container's snapshots", runSnapshotsAction))
-	ctSnapshotsDeleteCmd := newSimpleActionCmd("delete", "Delete one of a container's snapshots", runDeleteSnapshotAction)
+	snapshotsCmd.AddCommand(newSimpleActionCmd("list", "List a container's snapshots", mutationSafe, runSnapshotsAction))
+	ctSnapshotsDeleteCmd := newSimpleActionCmd("delete", "Delete one of a container's snapshots", mutationDestructive, runDeleteSnapshotAction)
 	ctSnapshotsDeleteCmd.Flags().StringVar(&ctSnapshotsDeleteName, "snapshot-name", "", "snapshot name to delete (skips the interactive listing/prompt when set, along with the name-or-vmid argument)")
 	ctSnapshotsDeleteCmd.Flags().BoolVarP(&ctSnapshotsDeleteYes, "yes", "y", false, "skip the confirmation prompt")
 	snapshotsCmd.AddCommand(ctSnapshotsDeleteCmd)
-	ctSnapshotsRollbackCmd := newSimpleActionCmd("rollback", "Roll back a container to one of its snapshots", runRollbackSnapshotAction)
+	ctSnapshotsRollbackCmd := newSimpleActionCmd("rollback", "Roll back a container to one of its snapshots", mutationDestructive, runRollbackSnapshotAction)
 	ctSnapshotsRollbackCmd.Flags().StringVar(&ctSnapshotsRollbackName, "snapshot-name", "", "snapshot name to roll back to (skips the interactive listing/prompt when set, along with the name-or-vmid argument)")
 	ctSnapshotsRollbackCmd.Flags().BoolVarP(&ctSnapshotsRollbackYes, "yes", "y", false, "skip the confirmation prompt")
 	snapshotsCmd.AddCommand(ctSnapshotsRollbackCmd)

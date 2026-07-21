@@ -27,8 +27,9 @@ var (
 )
 
 var qmCreateCmd = &cobra.Command{
-	Use:   "create",
-	Short: "Create a new QEMU VM",
+	Use:         "create",
+	Short:       "Create a new QEMU VM",
+	Annotations: mutationAnnotation(mutationMutating),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

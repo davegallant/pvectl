@@ -17,8 +17,9 @@ import (
 var setupInsecureSkipVerify bool
 
 var setupCmd = &cobra.Command{
-	Use:   "setup",
-	Short: "Store Proxmox API credentials",
+	Use:         "setup",
+	Short:       "Store Proxmox API credentials",
+	Annotations: mutationAnnotation(mutationMutating),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		existing, err := config.Load()
 		if err != nil {

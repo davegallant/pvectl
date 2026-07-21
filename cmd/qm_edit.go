@@ -16,6 +16,7 @@ import (
 var qmEditCmd = &cobra.Command{
 	Use:               "edit <name-or-vmid>",
 	Short:             "Edit a VM's config in $EDITOR",
+	Annotations:       mutationAnnotation(mutationMutating),
 	Args:              requireArgs("name-or-vmid"),
 	ValidArgsFunction: completeVMNames,
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -22,6 +22,7 @@ var (
 var qmCloneCmd = &cobra.Command{
 	Use:               "clone <name-or-vmid>",
 	Short:             "Clone a VM",
+	Annotations:       mutationAnnotation(mutationMutating),
 	Args:              requireArgs("name-or-vmid"),
 	ValidArgsFunction: completeVMNames,
 	RunE: func(cmd *cobra.Command, args []string) error {

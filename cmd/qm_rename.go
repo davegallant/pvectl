@@ -53,7 +53,7 @@ func renameVM(client *api.Client, v api.VM, newName string) error {
 }
 
 func init() {
-	qmRenameCmd := newSimpleVMActionCmd("rename", "Rename a VM", runRenameVM)
+	qmRenameCmd := newSimpleVMActionCmd("rename", "Rename a VM", mutationMutating, runRenameVM)
 	qmRenameCmd.Flags().StringVar(&qmRenameName, "name", "", "new name (skips the interactive prompt when set, along with the name-or-vmid argument)")
 	qmCmd.AddCommand(qmRenameCmd)
 }

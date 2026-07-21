@@ -17,9 +17,10 @@ var nodesCmd = &cobra.Command{
 }
 
 var nodesListCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"ls"},
-	Short:   "List Proxmox cluster nodes",
+	Use:         "list",
+	Aliases:     []string{"ls"},
+	Short:       "List Proxmox cluster nodes",
+	Annotations: mutationAnnotation(mutationSafe),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

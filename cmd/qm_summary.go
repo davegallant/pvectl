@@ -158,5 +158,5 @@ func renderVMSummary(v api.VM, status api.VMStatus, config api.VMConfig, interfa
 }
 
 func init() {
-	qmCmd.AddCommand(newSimpleVMActionCmd("summary", "Show a VM's status, HA state, resource usage, and IPs", runVMSummary))
+	qmCmd.AddCommand(newSimpleVMActionCmd("summary", "Show a VM's status, HA state, resource usage, and IPs", mutationSafe, runVMSummary))
 }

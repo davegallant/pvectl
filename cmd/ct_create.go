@@ -32,8 +32,9 @@ var (
 )
 
 var ctCreateCmd = &cobra.Command{
-	Use:   "create",
-	Short: "Create a new LXC container",
+	Use:         "create",
+	Short:       "Create a new LXC container",
+	Annotations: mutationAnnotation(mutationMutating),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

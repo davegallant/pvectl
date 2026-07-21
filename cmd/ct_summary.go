@@ -211,5 +211,5 @@ func stripCIDR(s string) string {
 }
 
 func init() {
-	ctCmd.AddCommand(newSimpleActionCmd("summary", "Show a container's status, HA state, resource usage, and IPs", runSummary))
+	ctCmd.AddCommand(newSimpleActionCmd("summary", "Show a container's status, HA state, resource usage, and IPs", mutationSafe, runSummary))
 }

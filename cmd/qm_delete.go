@@ -51,7 +51,7 @@ func runDeleteVMAction(client *api.Client, v api.VM) error {
 }
 
 func init() {
-	qmDeleteCmd := newSimpleVMActionCmd("destroy", "Permanently delete a VM", runDeleteVMAction)
+	qmDeleteCmd := newSimpleVMActionCmd("destroy", "Permanently delete a VM", mutationDestructive, runDeleteVMAction)
 	qmDeleteCmd.Aliases = []string{"delete"}
 	qmDeleteCmd.Flags().BoolVarP(&qmDeleteYes, "yes", "y", false, "skip the confirmation prompt")
 	qmDeleteCmd.Flags().BoolVar(&qmDeletePurge, "purge", false, "also remove the VM from backup jobs, replication jobs, HA, and ACLs")

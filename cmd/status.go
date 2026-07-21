@@ -335,8 +335,9 @@ const statusWatchInterval = 2 * time.Second
 var statusWatch bool
 
 var statusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show a quick Proxmox cluster health summary",
+	Use:         "status",
+	Short:       "Show a quick Proxmox cluster health summary",
+	Annotations: mutationAnnotation(mutationSafe),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := loadClient()
 		if err != nil {

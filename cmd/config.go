@@ -14,8 +14,9 @@ var configCmd = &cobra.Command{
 }
 
 var configViewCmd = &cobra.Command{
-	Use:   "view",
-	Short: "Show pvectl's stored configuration",
+	Use:         "view",
+	Short:       "Show pvectl's stored configuration",
+	Annotations: mutationAnnotation(mutationSafe),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {

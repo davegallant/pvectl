@@ -53,7 +53,7 @@ func runDeleteAction(client *api.Client, c api.Container) error {
 }
 
 func init() {
-	ctDeleteCmd := newSimpleActionCmd("destroy", "Permanently delete a container", runDeleteAction)
+	ctDeleteCmd := newSimpleActionCmd("destroy", "Permanently delete a container", mutationDestructive, runDeleteAction)
 	ctDeleteCmd.Aliases = []string{"delete"}
 	ctDeleteCmd.Flags().BoolVarP(&ctDeleteYes, "yes", "y", false, "skip the confirmation prompt")
 	ctDeleteCmd.Flags().BoolVar(&ctDeletePurge, "purge", false, "also remove the container from backup jobs, replication jobs, HA, and ACLs")
