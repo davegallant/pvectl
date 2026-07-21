@@ -106,7 +106,7 @@ func TestRunRebootVM(t *testing.T) {
 }
 
 func TestSimpleVMActionCommandsRegistered(t *testing.T) {
-	for _, name := range []string{"start", "stop", "reboot"} {
+	for _, name := range []string{"start", "stop", "reboot", "unlock"} {
 		found, _, err := rootCmd.Find([]string{"qm", name})
 		if err != nil {
 			t.Errorf("rootCmd.Find(%q) error = %v", name, err)

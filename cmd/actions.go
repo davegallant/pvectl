@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/davegallant/pvectl/internal/api"
+	"github.com/davegallant/pvectl/internal/ssh"
 	"github.com/spf13/cobra"
 )
 
@@ -51,6 +52,19 @@ func runReboot(client *api.Client, c api.Container) error {
 	return runProgressAction(client, c.Node, upid,
 		fmt.Sprintf("rebooting %s (%d)", c.Name, c.VMID),
 		fmt.Sprintf("rebooted %s (%d)", c.Name, c.VMID))
+}
+
+// runUnlock clears c's lock unconditionally — unlike destroy there's
+// nothing to confirm, matching pct's own unlock (a plain "clear whatever's
+// stuck" operation, not a destructive one). Goes over SSH rather than the
+// API client (unused here, like runAppendConfig's _ *api.Client) — see
+// ssh.Unlock's doc comment for why there's no API path.
+func runUnlock(_ *api.Client, c api.Container) error {
+	if err := ssh.Unlock(c.Node, c.VMID); err != nil {
+		return fmt.Errorf("unlocking %s (%d): %w", c.Name, c.VMID, err)
+	}
+	fmt.Printf("unlocked %s (%d)\n", c.Name, c.VMID)
+	return nil
 }
 
 // ctSnapshotName backs `ct snapshots create`'s `--name` flag, which skips
@@ -286,6 +300,7 @@ func init() {
 	ctCmd.AddCommand(newSimpleActionCmd("stop", "Stop a container immediately (hard power-off, no graceful attempt)", runStop))
 	ctCmd.AddCommand(newSimpleActionCmd("shutdown", "Gracefully shut down a container (waits on the guest, times out if it never responds)", runShutdown))
 	ctCmd.AddCommand(newSimpleActionCmd("reboot", "Reboot a container", runReboot))
+	ctCmd.AddCommand(newSimpleActionCmd("unlock", "Clear a container's lock, left behind by a crashed or interrupted task", runUnlock))
 
 	ctResizeCmd := newSimpleActionCmd("resize", "Grow a container disk (cannot shrink)", runResize)
 	ctResizeCmd.Flags().StringVar(&ctResizeDisk, "disk", "rootfs", `disk to resize (e.g. "rootfs", "mp0")`)

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/davegallant/pvectl/internal/api"
+	"github.com/davegallant/pvectl/internal/ssh"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,15 @@ func runRebootVM(client *api.Client, v api.VM) error {
 	return runProgressAction(client, v.Node, upid,
 		fmt.Sprintf("rebooting %s (%d)", v.Name, v.VMID),
 		fmt.Sprintf("rebooted %s (%d)", v.Name, v.VMID))
+}
+
+// runUnlockVM mirrors runUnlock exactly, for QEMU VMs.
+func runUnlockVM(_ *api.Client, v api.VM) error {
+	if err := ssh.UnlockVM(v.Node, v.VMID); err != nil {
+		return fmt.Errorf("unlocking %s (%d): %w", v.Name, v.VMID, err)
+	}
+	fmt.Printf("unlocked %s (%d)\n", v.Name, v.VMID)
+	return nil
 }
 
 // qmResizeDisk/qmResizeSize are ctResizeDisk's/ctResizeSize's mirror for
@@ -294,6 +304,7 @@ func init() {
 	qmCmd.AddCommand(newSimpleVMActionCmd("stop", "Stop a VM immediately (hard power-off, no ACPI/guest involvement)", runStopVM))
 	qmCmd.AddCommand(newSimpleVMActionCmd("shutdown", "Gracefully shut down a VM (ACPI shutdown, waits on the guest, times out if it never responds)", runShutdownVM))
 	qmCmd.AddCommand(newSimpleVMActionCmd("reboot", "Reboot a VM", runRebootVM))
+	qmCmd.AddCommand(newSimpleVMActionCmd("unlock", "Clear a VM's lock, left behind by a crashed or interrupted task", runUnlockVM))
 
 	qmResizeCmd := newSimpleVMActionCmd("resize", "Grow a VM disk (cannot shrink)", runResizeVM)
 	qmResizeCmd.Flags().StringVar(&qmResizeDisk, "disk", "scsi0", `disk to resize (e.g. "scsi0", "virtio0")`)

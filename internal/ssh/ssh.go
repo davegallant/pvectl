@@ -83,7 +83,15 @@ func buildAppendRawConfigCmd(node string, vmid int, lines []string) *exec.Cmd {
 // to set them, same as Enter/EnterVM are the only way to get an interactive
 // console.
 func AppendRawConfig(node string, vmid int, lines []string) error {
-	cmd := buildAppendRawConfigCmd(node, vmid, lines)
+	return runCapturingStderr(buildAppendRawConfigCmd(node, vmid, lines))
+}
+
+// runCapturingStderr runs cmd and, on failure, wraps the exit error with
+// whatever the remote side wrote to stderr — shared by AppendRawConfig/
+// Unlock/UnlockVM, the SSH calls whose failure text (e.g. Proxmox's own
+// "unable to unlock, not locked" message) the user actually needs to see,
+// not just ssh's own bare exit-code error.
+func runCapturingStderr(cmd *exec.Cmd) error {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -93,6 +101,35 @@ func AppendRawConfig(node string, vmid int, lines []string) error {
 		return err
 	}
 	return nil
+}
+
+// buildUnlockCmd constructs `ssh <node> pct unlock <vmid>`. There is no
+// REST API equivalent: `pct unlock`/`qm unlock` run entirely on the node
+// (removing the container's/VM's "lock" config entry directly via
+// PVE::LXC::Config/PVE::QemuConfig, as root) rather than calling into
+// pvedaemon — confirmed the hard way against a real cluster, where PUT
+// .../config rejects a lock removal outright ("CT is locked (backup)"),
+// and adding Proxmox's own `skiplock` parameter (used by action endpoints
+// like start/stop) is itself rejected by the config endpoint's schema, so
+// it isn't accepted there either. SSH is the only way in, same rationale
+// as AppendRawConfig.
+func buildUnlockCmd(node string, vmid int) *exec.Cmd {
+	return exec.Command("ssh", node, "pct", "unlock", fmt.Sprintf("%d", vmid))
+}
+
+// Unlock clears vmid's lock on node over SSH, matching `pct unlock`.
+func Unlock(node string, vmid int) error {
+	return runCapturingStderr(buildUnlockCmd(node, vmid))
+}
+
+// buildUnlockVMCmd is buildUnlockCmd's mirror for QEMU VMs.
+func buildUnlockVMCmd(node string, vmid int) *exec.Cmd {
+	return exec.Command("ssh", node, "qm", "unlock", fmt.Sprintf("%d", vmid))
+}
+
+// UnlockVM clears vmid's lock on node over SSH, matching `qm unlock`.
+func UnlockVM(node string, vmid int) error {
+	return runCapturingStderr(buildUnlockVMCmd(node, vmid))
 }
 
 // buildExecCmd constructs the `ssh <node> pct exec <vmid> -- <command...>`

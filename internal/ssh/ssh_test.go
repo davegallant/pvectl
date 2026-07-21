@@ -75,6 +75,34 @@ func TestBuildAppendRawConfigCmdArgs(t *testing.T) {
 	}
 }
 
+func TestBuildUnlockCmdArgs(t *testing.T) {
+	cmd := buildUnlockCmd("pve1", 101)
+
+	want := []string{"ssh", "pve1", "pct", "unlock", "101"}
+	if len(cmd.Args) != len(want) {
+		t.Fatalf("Args = %v, want %v", cmd.Args, want)
+	}
+	for i, arg := range want {
+		if cmd.Args[i] != arg {
+			t.Errorf("Args[%d] = %q, want %q", i, cmd.Args[i], arg)
+		}
+	}
+}
+
+func TestBuildUnlockVMCmdArgs(t *testing.T) {
+	cmd := buildUnlockVMCmd("pve1", 201)
+
+	want := []string{"ssh", "pve1", "qm", "unlock", "201"}
+	if len(cmd.Args) != len(want) {
+		t.Fatalf("Args = %v, want %v", cmd.Args, want)
+	}
+	for i, arg := range want {
+		if cmd.Args[i] != arg {
+			t.Errorf("Args[%d] = %q, want %q", i, cmd.Args[i], arg)
+		}
+	}
+}
+
 func TestBuildListDirCmdArgs(t *testing.T) {
 	cmd := buildListDirCmd(context.Background(), "pve1", 101, "sub/dir/")
 
