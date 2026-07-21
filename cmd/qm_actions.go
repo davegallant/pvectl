@@ -304,7 +304,7 @@ func init() {
 	qmCmd.AddCommand(newSimpleVMActionCmd("stop", "Stop a VM immediately (hard power-off, no ACPI/guest involvement)", runStopVM))
 	qmCmd.AddCommand(newSimpleVMActionCmd("shutdown", "Gracefully shut down a VM (ACPI shutdown, waits on the guest, times out if it never responds)", runShutdownVM))
 	qmCmd.AddCommand(newSimpleVMActionCmd("reboot", "Reboot a VM", runRebootVM))
-	qmCmd.AddCommand(newSimpleVMActionCmd("unlock", "Clear a VM's lock, left behind by a crashed or interrupted task", runUnlockVM))
+	qmCmd.AddCommand(newSimpleVMActionCmd("unlock", "Clear a VM's lock, left behind by a crashed or interrupted task (requires SSH)", runUnlockVM))
 
 	qmResizeCmd := newSimpleVMActionCmd("resize", "Grow a VM disk (cannot shrink)", runResizeVM)
 	qmResizeCmd.Flags().StringVar(&qmResizeDisk, "disk", "scsi0", `disk to resize (e.g. "scsi0", "virtio0")`)

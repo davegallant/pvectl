@@ -1,15 +1,15 @@
-## pvectl qm stop
+## pvectl qm unlock
 
-Stop a VM immediately (hard power-off, no ACPI/guest involvement)
+Clear a VM's lock, left behind by a crashed or interrupted task (requires SSH)
 
 ```
-pvectl qm stop <name-or-vmid> [flags]
+pvectl qm unlock <name-or-vmid> [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for stop
+  -h, --help   help for unlock
 ```
 
 ### Options inherited from parent commands

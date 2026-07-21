@@ -54,7 +54,7 @@ var ctConfigCmd = &cobra.Command{
 }
 
 func init() {
-	appendCmd := newSimpleActionCmd("append", "Append raw lxc.* config lines (e.g. cgroup rules, bind mounts) not exposed by the Proxmox API", runAppendConfig)
+	appendCmd := newSimpleActionCmd("append", "Append raw lxc.* config lines (e.g. cgroup rules, bind mounts) not exposed by the Proxmox API (requires SSH)", runAppendConfig)
 	appendCmd.Flags().StringArrayVar(&ctConfigAppendLines, "line", nil, `raw "lxc.subkey: value" config line to append (repeatable)`)
 	ctConfigCmd.AddCommand(appendCmd)
 	ctCmd.AddCommand(ctConfigCmd)

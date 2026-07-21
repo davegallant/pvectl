@@ -269,6 +269,14 @@ These were each found via live debugging against a real Proxmox cluster
   command except `setup`, before any network call. SSH-based commands
   (`ct enter`, `qm enter`) propagate SSH's own exit code and let its error
   output speak for itself — no custom wrapping.
+- Any command that unconditionally shells out to SSH (rather than SSH being
+  just the default `--method`, like `ct enter`/`qm enter` which already say
+  "via SSH" in their `Short`) must say so in its `Short` text, suffixed
+  `(requires SSH)` — e.g. `ct exec`, `ct config append`, `ct unlock`,
+  `qm unlock`. This is the only place these commands are labeled; there's no
+  `Annotations`-based machine-readable tag or `--ssh-only` filter, since
+  nothing consumes one today. Keep any new SSH-only command consistent with
+  this rather than leaving it unlabeled.
 - Parent commands never do implicit work — `ctCmd`, `qmCmd`, and
   `backupsCmd` (under each) have no `RunE` of their own and just print
   help when run bare. Every action, including listing, is an explicit

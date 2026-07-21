@@ -300,7 +300,7 @@ func init() {
 	ctCmd.AddCommand(newSimpleActionCmd("stop", "Stop a container immediately (hard power-off, no graceful attempt)", runStop))
 	ctCmd.AddCommand(newSimpleActionCmd("shutdown", "Gracefully shut down a container (waits on the guest, times out if it never responds)", runShutdown))
 	ctCmd.AddCommand(newSimpleActionCmd("reboot", "Reboot a container", runReboot))
-	ctCmd.AddCommand(newSimpleActionCmd("unlock", "Clear a container's lock, left behind by a crashed or interrupted task", runUnlock))
+	ctCmd.AddCommand(newSimpleActionCmd("unlock", "Clear a container's lock, left behind by a crashed or interrupted task (requires SSH)", runUnlock))
 
 	ctResizeCmd := newSimpleActionCmd("resize", "Grow a container disk (cannot shrink)", runResize)
 	ctResizeCmd.Flags().StringVar(&ctResizeDisk, "disk", "rootfs", `disk to resize (e.g. "rootfs", "mp0")`)
