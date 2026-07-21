@@ -392,6 +392,76 @@ func TestRestoreVMForce(t *testing.T) {
 	}
 }
 
+func TestClientCloneVM(t *testing.T) {
+	var gotPath, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	upid, err := client.CloneVM(context.Background(), "pve1", 201, CloneVMParams{
+		TargetVMID:  205,
+		Name:        "web01-clone",
+		Storage:     "local-lvm",
+		Full:        true,
+		Target:      "pve2",
+		Pool:        "eng",
+		Description: "clone for testing",
+		SnapName:    "pre-upgrade",
+	})
+	if err != nil {
+		t.Fatalf("CloneVM() error = %v", err)
+	}
+	if upid != "UPID:..." {
+		t.Errorf("CloneVM() upid = %q", upid)
+	}
+	if gotPath != "/api2/json/nodes/pve1/qemu/201/clone" {
+		t.Errorf("path = %q, want /api2/json/nodes/pve1/qemu/201/clone", gotPath)
+	}
+
+	values, err := url.ParseQuery(gotBody)
+	if err != nil {
+		t.Fatalf("ParseQuery(%q) error = %v", gotBody, err)
+	}
+	want := map[string]string{
+		"newid":       "205",
+		"name":        "web01-clone",
+		"storage":     "local-lvm",
+		"full":        "1",
+		"target":      "pve2",
+		"pool":        "eng",
+		"description": "clone for testing",
+		"snapname":    "pre-upgrade",
+	}
+	for k, v := range want {
+		if values.Get(k) != v {
+			t.Errorf("body[%q] = %q, want %q", k, values.Get(k), v)
+		}
+	}
+}
+
+func TestClientCloneVMOmitsOptionalFields(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.CloneVM(context.Background(), "pve1", 201, CloneVMParams{TargetVMID: 205}); err != nil {
+		t.Fatalf("CloneVM() error = %v", err)
+	}
+	if gotBody != "newid=205" {
+		t.Errorf("body = %q, want newid=205 with every optional field omitted", gotBody)
+	}
+}
+
 func TestClientGetVMConfig(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{

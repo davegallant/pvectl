@@ -136,6 +136,52 @@ func (c *Client) CreateVM(ctx context.Context, node string, p CreateVMParams) (s
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }
 
+// CloneVMParams holds the qm-clone parameters `pvectl qm clone` exposes —
+// mirrors CloneContainerParams exactly, except Name replaces Hostname
+// (QEMU VMs have a Name, not a Hostname). Full is sent as "1" only when
+// true — omitted otherwise, so Proxmox falls back to its own default
+// (full copy for a normal VM, linked clone for a template), matching
+// qm's own behavior.
+type CloneVMParams struct {
+	TargetVMID  int
+	Name        string
+	Storage     string
+	Full        bool
+	Target      string
+	Pool        string
+	Description string
+	SnapName    string
+}
+
+// CloneVM clones vmid on node into a new VM p.TargetVMID, returning the
+// Proxmox task UPID — mirrors CloneContainer exactly.
+func (c *Client) CloneVM(ctx context.Context, node string, vmid int, p CloneVMParams) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/qemu/%d/clone", node, vmid)
+	form := url.Values{"newid": {strconv.Itoa(p.TargetVMID)}}
+	if p.Name != "" {
+		form.Set("name", p.Name)
+	}
+	if p.Storage != "" {
+		form.Set("storage", p.Storage)
+	}
+	if p.Full {
+		form.Set("full", "1")
+	}
+	if p.Target != "" {
+		form.Set("target", p.Target)
+	}
+	if p.Pool != "" {
+		form.Set("pool", p.Pool)
+	}
+	if p.Description != "" {
+		form.Set("description", p.Description)
+	}
+	if p.SnapName != "" {
+		form.Set("snapname", p.SnapName)
+	}
+	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
+}
+
 // RestoreVM restores archive (a backup volid, as returned by
 // ListBackups/ListAllBackups) onto vmid on node, returning the Proxmox
 // task UPID — mirrors RestoreContainer exactly, except QEMU's restore
