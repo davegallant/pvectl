@@ -50,13 +50,19 @@ docs:
     go run ./tools/gendocs
 
 # Record an asciinema demo of pvectl interactively and convert it to a GIF
-# for embedding in the README (requires asciinema and agg on PATH). Builds
-# first so the recording reflects current source. Perform the demo actions
-# yourself in the recorded shell, then exit (e.g. Ctrl-D) to stop the
-# recording and automatically convert it to a GIF.
+# for embedding in the README (requires asciinema, agg, and gifsicle on
+# PATH). Builds first so the recording reflects current source. Perform the
+# demo actions yourself in the recorded shell, then exit (e.g. Ctrl-D) to
+# stop the recording and automatically convert it to a GIF. The first frame
+# (the empty prompt before the demo starts) is stripped from the result.
 record-demo: build
     asciinema rec -c fish pvectl-demo.cast --overwrite --window-size 100x24
     agg pvectl-demo.cast pvectl-demo.gif
+    # Remove the first frame
+    gifsicle --colors 255 pvectl-demo.gif -o pvectl-demo.gif
+    gifsicle --unoptimize pvectl-demo.gif -o pvectl-demo.gif
+    gifsicle pvectl-demo.gif --delete '#0' -o pvectl-demo.gif
+    gifsicle -O2 pvectl-demo.gif -o pvectl-demo.gif
 
 # Tag and push a release using the CHANGELOG.md entry as the tag message,
 # e.g. just release 0.1.0. Requires a clean working tree and a matching
