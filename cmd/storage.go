@@ -37,6 +37,9 @@ func runStorage(client *api.Client) error {
 	if err != nil {
 		return fmt.Errorf("fetching cluster resources: %w", err)
 	}
+	if jsonOutput {
+		return printJSON(sortedCollapsedStorage(resources.Storage))
+	}
 	fmt.Print(renderStorageReport(resources.Storage))
 	return nil
 }

@@ -61,8 +61,14 @@ func runListBackups(client *api.Client, node string, vmid int, name string) erro
 		return fmt.Errorf("listing backups for %s (%d): %w", name, vmid, err)
 	}
 	if len(backups) == 0 {
+		if jsonOutput {
+			return printJSON([]api.Backup{})
+		}
 		fmt.Printf("no backups found for %s (%d)\n", name, vmid)
 		return nil
+	}
+	if jsonOutput {
+		return printJSON(backups)
 	}
 	fmt.Print(renderBackups(backups))
 	return nil

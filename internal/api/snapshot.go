@@ -11,10 +11,10 @@ import (
 // Snapshot is one guest snapshot, as returned by GET
 // /nodes/{node}/lxc|qemu/{vmid}/snapshot.
 type Snapshot struct {
-	Name        string
-	Description string
-	SnapTime    int64
-	Parent      string
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	SnapTime    int64  `json:"snaptime"`
+	Parent      string `json:"parent"`
 }
 
 type snapshotEntry struct {

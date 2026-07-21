@@ -52,6 +52,9 @@ func runQmList(client *api.Client, node string) error {
 		}
 		vms = filtered
 	}
+	if jsonOutput {
+		return printJSON(vms)
+	}
 	fmt.Print(renderVMList(vms))
 	return nil
 }

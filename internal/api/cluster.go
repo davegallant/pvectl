@@ -66,12 +66,12 @@ func (c *Client) ClusterStatus(ctx context.Context) (ClusterStatus, error) {
 // NodeResource is one node's entry from /cluster/resources: current
 // status and resource usage.
 type NodeResource struct {
-	Name   string
-	Status string
-	CPU    float64 // fraction 0-1
-	MaxCPU int
-	Mem    int64
-	MaxMem int64
+	Name   string  `json:"name"`
+	Status string  `json:"status"`
+	CPU    float64 `json:"cpu"` // fraction 0-1
+	MaxCPU int     `json:"maxcpu"`
+	Mem    int64   `json:"mem"`
+	MaxMem int64   `json:"maxmem"`
 }
 
 // ResourceCounts tallies containers or VMs by status. Total counts every
@@ -95,18 +95,18 @@ type ResourceCounts struct {
 // unrelated copy of) must not be collapsed, or a node's real capacity
 // silently disappears from the report.
 type StorageResource struct {
-	Name    string
-	Node    string
-	Type    string
-	Disk    int64
-	MaxDisk int64
+	Name    string `json:"name"`
+	Node    string `json:"node"`
+	Type    string `json:"type"`
+	Disk    int64  `json:"disk"`
+	MaxDisk int64  `json:"maxdisk"`
 	// Health is Proxmox's raw storage status ("available", etc.).
-	Health string
+	Health string `json:"health"`
 	// Shared reports whether Proxmox's storage config has this storage
 	// marked shared (one logical pool visible on every node it's
 	// attached to), as opposed to a per-node-distinct storage that
 	// merely happens to share a name (e.g. "local").
-	Shared bool
+	Shared bool `json:"shared"`
 }
 
 // ClusterResources is the /cluster/resources data needed by `pvectl

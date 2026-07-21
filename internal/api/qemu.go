@@ -12,10 +12,10 @@ import (
 
 // VM is a QEMU virtual machine as returned by /cluster/resources.
 type VM struct {
-	VMID   int
-	Name   string
-	Node   string
-	Status string
+	VMID   int    `json:"vmid"`
+	Name   string `json:"name"`
+	Node   string `json:"node"`
+	Status string `json:"status"`
 }
 
 // ListVMs returns every QEMU VM across the cluster, sorted by VMID

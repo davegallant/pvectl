@@ -5,9 +5,10 @@ CLI for Proxmox VE
 ### Options
 
 ```
-      --debug     log Proxmox API request/response activity to stderr
-  -h, --help      help for pvectl
-      --verbose   show Proxmox task IDs (UPIDs) alongside action output
+      --debug           log Proxmox API request/response activity to stderr
+  -h, --help            help for pvectl
+  -o, --output string   output format: "table" or "json" (default "table")
+      --verbose         show Proxmox task IDs (UPIDs) alongside action output
 ```
 
 ### SEE ALSO
@@ -16,6 +17,7 @@ CLI for Proxmox VE
 * [pvectl ct](pvectl_ct.md)	 - Manage containers
 * [pvectl nodes](pvectl_nodes.md)	 - Manage Proxmox cluster nodes
 * [pvectl qm](pvectl_qm.md)	 - Manage QEMU VMs
+* [pvectl schema](pvectl_schema.md)	 - Print pvectl's command tree (names, flags, descriptions) as JSON, for agent introspection
 * [pvectl setup](pvectl_setup.md)	 - Store Proxmox API credentials
 * [pvectl status](pvectl_status.md)	 - Show a quick Proxmox cluster health summary
 * [pvectl storage](pvectl_storage.md)	 - Manage cluster storage

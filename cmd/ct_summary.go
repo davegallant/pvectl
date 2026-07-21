@@ -34,8 +34,86 @@ func runSummary(client *api.Client, c api.Container) error {
 	interfaces, _ := client.LXCInterfaces(ctx, c.Node, c.VMID)
 	haState, haManaged, _ := client.HAResourceState(ctx, fmt.Sprintf("ct:%d", c.VMID))
 
+	if jsonOutput {
+		return printJSON(summaryJSON(c, status, config, interfaces, haState, haManaged))
+	}
 	fmt.Print(renderSummary(c, status, config, interfaces, haState, haManaged))
 	return nil
+}
+
+// ctSummaryJSON is `ct summary --output json`'s shape — the same fields
+// renderSummary's table shows, structured instead of formatted.
+type ctSummaryJSON struct {
+	VMID         int                `json:"vmid"`
+	Name         string             `json:"name"`
+	Node         string             `json:"node"`
+	Status       string             `json:"status"`
+	HAState      string             `json:"haState"`
+	HAManaged    bool               `json:"haManaged"`
+	Unprivileged bool               `json:"unprivileged"`
+	CPU          float64            `json:"cpu"` // fraction 0-1
+	CPUs         int                `json:"cpus"`
+	Mem          int64              `json:"mem"`
+	MaxMem       int64              `json:"maxMem"`
+	Swap         int64              `json:"swap"`
+	MaxSwap      int64              `json:"maxSwap"`
+	Disk         int64              `json:"disk"`
+	MaxDisk      int64              `json:"maxDisk"`
+	Interfaces   []summaryInterface `json:"interfaces,omitempty"`
+}
+
+// summaryInterface is one network interface's non-link-local IPs, shared
+// by ct and qm summary's JSON output.
+type summaryInterface struct {
+	Name string   `json:"name"`
+	IPs  []string `json:"ips"`
+}
+
+// summaryJSON builds a ctSummaryJSON from already-fetched data — same
+// link-local filtering as renderSummary's IPs section, just structured
+// instead of formatted into text.
+func summaryJSON(c api.Container, status api.LXCStatus, config api.Config, interfaces []api.LXCInterface, haState string, haManaged bool) ctSummaryJSON {
+	ha := "none"
+	if haManaged {
+		ha = haState
+	}
+
+	var ifaces []summaryInterface
+	for _, iface := range interfaces {
+		var ips []string
+		for _, raw := range []string{iface.Inet, iface.Inet6} {
+			ip := stripCIDR(raw)
+			if ip == "" {
+				continue
+			}
+			if parsed := net.ParseIP(ip); parsed != nil && parsed.IsLinkLocalUnicast() {
+				continue
+			}
+			ips = append(ips, ip)
+		}
+		if len(ips) > 0 {
+			ifaces = append(ifaces, summaryInterface{Name: iface.Name, IPs: ips})
+		}
+	}
+
+	return ctSummaryJSON{
+		VMID:         c.VMID,
+		Name:         c.Name,
+		Node:         c.Node,
+		Status:       status.Status,
+		HAState:      ha,
+		HAManaged:    haManaged,
+		Unprivileged: config.Fields["unprivileged"] == "1",
+		CPU:          status.CPU,
+		CPUs:         status.CPUs,
+		Mem:          status.Mem,
+		MaxMem:       status.MaxMem,
+		Swap:         status.Swap,
+		MaxSwap:      status.MaxSwap,
+		Disk:         status.Disk,
+		MaxDisk:      status.MaxDisk,
+		Interfaces:   ifaces,
+	}
 }
 
 // renderSummary formats a container's status, HA state, resource usage,

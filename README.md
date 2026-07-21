@@ -15,6 +15,9 @@ without leaving your terminal or memorizing a container or vm id.
 - **Secrets stay in your keychain.** `pvectl setup` stores your API token
   secret in the OS keychain, if available.
 - **Use with your coding agent.** Works with your harness of choice.
+  `-o json`/`--output json` gets machine-readable output on list/summary
+  commands instead of a table, and `pvectl schema` prints the full command
+  tree (names, flags, descriptions) as JSON for introspection.
 
 > [!WARNING]
 > **Experimental, provided as-is, with no warranty.** pvectl can start,

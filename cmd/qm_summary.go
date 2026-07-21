@@ -29,8 +29,71 @@ func runVMSummary(client *api.Client, v api.VM) error {
 	interfaces, _ := client.QemuInterfaces(ctx, v.Node, v.VMID)
 	haState, haManaged, _ := client.HAResourceState(ctx, fmt.Sprintf("vm:%d", v.VMID))
 
+	if jsonOutput {
+		return printJSON(vmSummaryJSON(v, status, config, interfaces, haState, haManaged))
+	}
 	fmt.Print(renderVMSummary(v, status, config, interfaces, haState, haManaged))
 	return nil
+}
+
+// qmSummaryJSON is `qm summary --output json`'s shape — the same fields
+// renderVMSummary's table shows, structured instead of formatted.
+type qmSummaryJSON struct {
+	VMID       int                `json:"vmid"`
+	Name       string             `json:"name"`
+	Node       string             `json:"node"`
+	Status     string             `json:"status"`
+	HAState    string             `json:"haState"`
+	HAManaged  bool               `json:"haManaged"`
+	Agent      bool               `json:"agent"`
+	CPU        float64            `json:"cpu"` // fraction 0-1
+	CPUs       int                `json:"cpus"`
+	Mem        int64              `json:"mem"`
+	MaxMem     int64              `json:"maxMem"`
+	Disk       int64              `json:"disk"`
+	MaxDisk    int64              `json:"maxDisk"`
+	Interfaces []summaryInterface `json:"interfaces,omitempty"`
+}
+
+// vmSummaryJSON builds a qmSummaryJSON from already-fetched data — same
+// link-local filtering as renderVMSummary's IPs section, just structured
+// instead of formatted into text.
+func vmSummaryJSON(v api.VM, status api.VMStatus, config api.VMConfig, interfaces []api.QemuInterface, haState string, haManaged bool) qmSummaryJSON {
+	ha := "none"
+	if haManaged {
+		ha = haState
+	}
+
+	var ifaces []summaryInterface
+	for _, iface := range interfaces {
+		var ips []string
+		for _, ip := range iface.IPAddresses {
+			if parsed := net.ParseIP(ip); parsed != nil && parsed.IsLinkLocalUnicast() {
+				continue
+			}
+			ips = append(ips, ip)
+		}
+		if len(ips) > 0 {
+			ifaces = append(ifaces, summaryInterface{Name: iface.Name, IPs: ips})
+		}
+	}
+
+	return qmSummaryJSON{
+		VMID:       v.VMID,
+		Name:       v.Name,
+		Node:       v.Node,
+		Status:     status.Status,
+		HAState:    ha,
+		HAManaged:  haManaged,
+		Agent:      strings.HasPrefix(config.Fields["agent"], "1"),
+		CPU:        status.CPU,
+		CPUs:       status.CPUs,
+		Mem:        status.Mem,
+		MaxMem:     status.MaxMem,
+		Disk:       status.Disk,
+		MaxDisk:    status.MaxDisk,
+		Interfaces: ifaces,
+	}
 }
 
 // renderVMSummary is renderSummary's mirror for QEMU VMs. It swaps the

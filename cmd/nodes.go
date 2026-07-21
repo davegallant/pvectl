@@ -62,8 +62,50 @@ func runNodes(client *api.Client) error {
 		return fmt.Errorf("fetching cluster resources: %w", resErr)
 	}
 
+	if jsonOutput {
+		return printJSON(nodesJSON(status, resources.Nodes))
+	}
 	fmt.Print(renderNodes(status, resources.Nodes))
 	return nil
+}
+
+// nodeJSON is one node's `nodes list --json` entry, joining the IP from
+// ClusterStatus with the CPU/mem usage from ClusterResources — the same
+// two sources renderNodesTable's columns come from.
+type nodeJSON struct {
+	Name   string  `json:"name"`
+	IP     string  `json:"ip,omitempty"`
+	Status string  `json:"status"`
+	CPU    float64 `json:"cpu"` // fraction 0-1
+	Mem    int64   `json:"mem"`
+	MaxMem int64   `json:"maxMem"`
+}
+
+// nodesJSON builds nodeJSON entries from already-fetched data, sorted by
+// name — mirrors renderNodes's sort so JSON and table output agree on
+// order.
+func nodesJSON(status api.ClusterStatus, nodeResources []api.NodeResource) []nodeJSON {
+	nodes := append([]api.NodeResource(nil), nodeResources...)
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].Name < nodes[j].Name
+	})
+
+	out := make([]nodeJSON, 0, len(nodes))
+	for _, n := range nodes {
+		ip := ""
+		if ns, ok := status.Nodes[n.Name]; ok {
+			ip = ns.IP
+		}
+		out = append(out, nodeJSON{
+			Name:   n.Name,
+			IP:     ip,
+			Status: n.Status,
+			CPU:    n.CPU,
+			Mem:    n.Mem,
+			MaxMem: n.MaxMem,
+		})
+	}
+	return out
 }
 
 // renderNodes formats the cluster's node table (NAME/IP/STATUS/CPU/MEM)

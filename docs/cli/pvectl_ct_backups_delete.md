@@ -17,8 +17,9 @@ pvectl ct backups delete <name-or-vmid> [flags]
 ### Options inherited from parent commands
 
 ```
-      --debug     log Proxmox API request/response activity to stderr
-      --verbose   show Proxmox task IDs (UPIDs) alongside action output
+      --debug           log Proxmox API request/response activity to stderr
+  -o, --output string   output format: "table" or "json" (default "table")
+      --verbose         show Proxmox task IDs (UPIDs) alongside action output
 ```
 
 ### SEE ALSO

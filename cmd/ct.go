@@ -52,6 +52,9 @@ func runCtList(client *api.Client, node string) error {
 		}
 		containers = filtered
 	}
+	if jsonOutput {
+		return printJSON(containers)
+	}
 	fmt.Print(renderContainerList(containers))
 	return nil
 }

@@ -20,8 +20,14 @@ func runListSnapshots(client *api.Client, node string, vmid int, name string) er
 		return fmt.Errorf("listing snapshots for %s (%d): %w", name, vmid, err)
 	}
 	if len(snapshots) == 0 {
+		if jsonOutput {
+			return printJSON([]api.Snapshot{})
+		}
 		fmt.Printf("no snapshots found for %s (%d)\n", name, vmid)
 		return nil
+	}
+	if jsonOutput {
+		return printJSON(snapshots)
 	}
 	fmt.Print(renderSnapshots(snapshots))
 	return nil

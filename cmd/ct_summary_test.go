@@ -43,6 +43,50 @@ func TestRenderSummaryRunningContainer(t *testing.T) {
 	}
 }
 
+func TestSummaryJSONFiltersLinkLocalAndReportsFields(t *testing.T) {
+	c := api.Container{VMID: 104, Name: "immich", Node: "pve-g3-1", Status: "running"}
+	status := api.LXCStatus{
+		Status: "running", CPU: 0.0037, CPUs: 4,
+		Mem: 1470000000, MaxMem: 6500000000,
+		Swap: 0, MaxSwap: 0,
+		Disk: 13980000000, MaxDisk: 20960000000,
+	}
+	config := api.Config{Fields: map[string]string{"unprivileged": "1"}}
+	interfaces := []api.LXCInterface{
+		{Name: "eth0", Inet: "192.168.1.24/24", Inet6: "fe80::be24:11ff:feac:5f59/64"},
+	}
+
+	got := summaryJSON(c, status, config, interfaces, "started", true)
+
+	if got.VMID != 104 || got.Name != "immich" || got.Node != "pve-g3-1" {
+		t.Errorf("summaryJSON() = %+v, want VMID/Name/Node from c", got)
+	}
+	if !got.Unprivileged {
+		t.Error("summaryJSON().Unprivileged = false, want true")
+	}
+	if !got.HAManaged || got.HAState != "started" {
+		t.Errorf("summaryJSON() HAManaged/HAState = %v/%q, want true/\"started\"", got.HAManaged, got.HAState)
+	}
+	if len(got.Interfaces) != 1 || got.Interfaces[0].Name != "eth0" {
+		t.Fatalf("summaryJSON().Interfaces = %+v, want one eth0 entry", got.Interfaces)
+	}
+	if len(got.Interfaces[0].IPs) != 1 || got.Interfaces[0].IPs[0] != "192.168.1.24" {
+		t.Errorf("summaryJSON().Interfaces[0].IPs = %v, want [\"192.168.1.24\"] (link-local fe80 IP filtered out)", got.Interfaces[0].IPs)
+	}
+}
+
+func TestSummaryJSONNotHAManagedReportsNone(t *testing.T) {
+	c := api.Container{VMID: 104, Name: "immich", Node: "pve1"}
+	got := summaryJSON(c, api.LXCStatus{}, api.Config{}, nil, "", false)
+
+	if got.HAManaged || got.HAState != "none" {
+		t.Errorf("summaryJSON() HAManaged/HAState = %v/%q, want false/\"none\"", got.HAManaged, got.HAState)
+	}
+	if got.Interfaces != nil {
+		t.Errorf("summaryJSON().Interfaces = %v, want nil for no interfaces", got.Interfaces)
+	}
+}
+
 func TestRenderSummaryHAManaged(t *testing.T) {
 	c := api.Container{VMID: 104, Name: "immich", Node: "pve-g3-1"}
 	got := renderSummary(c, api.LXCStatus{}, api.Config{}, nil, "started", true)

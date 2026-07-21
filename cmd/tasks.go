@@ -53,6 +53,13 @@ func runTasks(client *api.Client) error {
 	if err != nil {
 		return fmt.Errorf("fetching cluster tasks: %w", err)
 	}
+	if jsonOutput {
+		sorted := append([]api.ClusterTask(nil), tasks...)
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].StartTime < sorted[j].StartTime
+		})
+		return printJSON(sorted)
+	}
 	fmt.Print(renderTasksTable(tasks, verbose))
 	return nil
 }

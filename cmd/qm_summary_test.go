@@ -41,6 +41,37 @@ func TestRenderVMSummaryRunningVM(t *testing.T) {
 	}
 }
 
+func TestVMSummaryJSONFiltersLinkLocalAndReportsFields(t *testing.T) {
+	v := api.VM{VMID: 200, Name: "unifi", Node: "pve-g3-1", Status: "running"}
+	status := api.VMStatus{
+		Status: "running", CPU: 0.0037, CPUs: 4,
+		Mem: 1470000000, MaxMem: 6500000000,
+		Disk: 0, MaxDisk: 20960000000,
+	}
+	config := api.VMConfig{Fields: map[string]string{"agent": "1,fstrim_cloned_disks=1"}}
+	interfaces := []api.QemuInterface{
+		{Name: "eth0", IPAddresses: []string{"192.168.1.50", "fe80::5054:ff:fe12:3456"}},
+	}
+
+	got := vmSummaryJSON(v, status, config, interfaces, "started", true)
+
+	if got.VMID != 200 || got.Name != "unifi" || got.Node != "pve-g3-1" {
+		t.Errorf("vmSummaryJSON() = %+v, want VMID/Name/Node from v", got)
+	}
+	if !got.Agent {
+		t.Error("vmSummaryJSON().Agent = false, want true")
+	}
+	if !got.HAManaged || got.HAState != "started" {
+		t.Errorf("vmSummaryJSON() HAManaged/HAState = %v/%q, want true/\"started\"", got.HAManaged, got.HAState)
+	}
+	if len(got.Interfaces) != 1 || got.Interfaces[0].Name != "eth0" {
+		t.Fatalf("vmSummaryJSON().Interfaces = %+v, want one eth0 entry", got.Interfaces)
+	}
+	if len(got.Interfaces[0].IPs) != 1 || got.Interfaces[0].IPs[0] != "192.168.1.50" {
+		t.Errorf("vmSummaryJSON().Interfaces[0].IPs = %v, want [\"192.168.1.50\"] (link-local fe80 IP filtered out)", got.Interfaces[0].IPs)
+	}
+}
+
 // TestRenderVMSummaryManyVirtualInterfacesOmitsLinkLocal covers a guest
 // like Home Assistant OS: many Docker/Supervisor bridge and veth
 // interfaces, each contributing its own link-local IPv6 address. Only the

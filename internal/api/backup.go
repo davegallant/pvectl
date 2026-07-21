@@ -28,14 +28,14 @@ func (c *Client) Backup(ctx context.Context, node string, vmid int, storage stri
 
 // Backup is one vzdump archive found on a storage's content listing.
 type Backup struct {
-	VolID   string
-	Storage string
-	Node    string
-	VMID    int
-	CTime   int64
-	Size    int64
-	Format  string
-	Notes   string
+	VolID   string `json:"volid"`
+	Storage string `json:"storage"`
+	Node    string `json:"node"`
+	VMID    int    `json:"vmid"`
+	CTime   int64  `json:"ctime"`
+	Size    int64  `json:"size"`
+	Format  string `json:"format"`
+	Notes   string `json:"notes"`
 }
 
 // looseInt64 decodes a JSON number or a JSON string containing a number

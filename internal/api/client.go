@@ -171,10 +171,10 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 
 // Container is an LXC container as returned by /cluster/resources.
 type Container struct {
-	VMID   int
-	Name   string
-	Node   string
-	Status string
+	VMID   int    `json:"vmid"`
+	Name   string `json:"name"`
+	Node   string `json:"node"`
+	Status string `json:"status"`
 }
 
 type resourcesResponse struct {

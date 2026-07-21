@@ -66,6 +66,33 @@ func TestRenderNodesMissingFromClusterStatusShowsDash(t *testing.T) {
 	}
 }
 
+func TestNodesJSONSortsAndMergesIP(t *testing.T) {
+	status := api.ClusterStatus{
+		Nodes: map[string]api.NodeStatus{
+			"pve02": {IP: "10.0.0.11", Online: true},
+		},
+	}
+	nodes := []api.NodeResource{
+		{Name: "pve02", Status: "online", CPU: 0.15, MaxCPU: 4, Mem: 17179869184, MaxMem: 68719476736},
+		{Name: "pve01", Status: "online", CPU: 0.30, MaxCPU: 4, Mem: 51539607552, MaxMem: 137438953472},
+	}
+
+	got := nodesJSON(status, nodes)
+
+	if len(got) != 2 {
+		t.Fatalf("nodesJSON() returned %d entries, want 2", len(got))
+	}
+	if got[0].Name != "pve01" || got[1].Name != "pve02" {
+		t.Errorf("nodesJSON() = %+v, want sorted by name (pve01, pve02)", got)
+	}
+	if got[0].IP != "" {
+		t.Errorf("pve01 IP = %q, want empty (missing from ClusterStatus.Nodes)", got[0].IP)
+	}
+	if got[1].IP != "10.0.0.11" {
+		t.Errorf("pve02 IP = %q, want %q", got[1].IP, "10.0.0.11")
+	}
+}
+
 func TestRunNodes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
