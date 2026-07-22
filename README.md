@@ -18,6 +18,8 @@ without leaving your terminal or memorizing a container or vm id.
   `-o json`/`--output json` gets machine-readable output on list/summary
   commands instead of a table, and `pvectl schema` prints the full command
   tree (names, flags, descriptions) as JSON for introspection.
+  `pvectl api get/post/put/delete <path>` is a raw escape hatch for any
+  Proxmox API endpoint pvectl has no dedicated command for.
 
 > [!WARNING]
 > **Experimental, provided as-is, with no warranty.** pvectl can start,

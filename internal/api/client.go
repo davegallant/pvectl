@@ -146,6 +146,15 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader, ou
 	if out == nil {
 		return nil
 	}
+	// A handful of Proxmox endpoints (e.g. some DELETEs) reply with a
+	// 2xx status and a genuinely empty body — decoding that into any
+	// out type, including json.RawMessage, would otherwise fail with
+	// io.EOF. Leave *out at its zero value instead of erroring; this
+	// matters for RawRequest (cmd `api` passthrough), which has no
+	// fixed response shape to fall back on.
+	if len(respBody) == 0 {
+		return nil
+	}
 	// Use a Decoder with UseNumber so that numeric values decoded into
 	// interface{} (e.g. map[string]any) retain their original literal
 	// text as json.Number instead of being converted to float64, which

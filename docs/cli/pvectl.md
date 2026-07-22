@@ -13,6 +13,7 @@ CLI for Proxmox VE
 
 ### SEE ALSO
 
+* [pvectl api](pvectl_api.md)	 - Make a raw Proxmox API call — an escape hatch for endpoints pvectl has no dedicated command for
 * [pvectl config](pvectl_config.md)	 - Manage pvectl's own configuration
 * [pvectl ct](pvectl_ct.md)	 - Manage containers
 * [pvectl nodes](pvectl_nodes.md)	 - Manage Proxmox cluster nodes

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `pvectl api get/post/put/delete <path>`: a raw Proxmox API escape hatch for endpoints with no dedicated pvectl command (e.g. `pvectl api get /access/users`), with a repeatable `--data key=value` flag for parameters (query string on `get`, form body otherwise) and the response printed as raw JSON
 - Added agent/scripting-friendly JSON output: a global `--output`/`-o` flag (`-o json`) makes `ct list`/`qm list`, `nodes list`, `storage list`, `tasks list`, `ct backups list`/`qm backups list`, `ct snapshots list`/`qm snapshots list`, and `ct summary`/`qm summary` print their data as JSON instead of a table/text; `pvectl schema` prints pvectl's full command tree (names, flags, descriptions) as JSON for introspection, with each command classified as `safe`, `mutating`, or `destructive` so an agent can gauge risk before calling something
 - Added `pvectl ct template`/`pvectl qm template`: convert a container/VM to a template (irreversible — requires typing `yes` to confirm, or `-y`/`--yes` to skip), matching `pct template`/`qm template`
 - Added `pvectl ct unlock`/`pvectl qm unlock`: clear a container's/VM's lock, left behind by a crashed or interrupted task. Runs over SSH (like `ct enter`/`ct config append`), since Proxmox's REST API has no way to remove a lock — `pct unlock`/`qm unlock` only ever run locally on the node
