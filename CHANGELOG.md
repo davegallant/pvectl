@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - Added `pvectl api get/post/put/delete <path>`: a raw Proxmox API escape hatch for endpoints with no dedicated pvectl command (e.g. `pvectl api get /access/users`), with a repeatable `--data key=value` flag for parameters (query string on `get`, form body otherwise) and the response printed as raw JSON
 - Added agent/scripting-friendly JSON output: a global `--output`/`-o` flag (`-o json`) makes `ct list`/`qm list`, `nodes list`, `storage list`, `tasks list`, `ct backups list`/`qm backups list`, `ct snapshots list`/`qm snapshots list`, and `ct summary`/`qm summary` print their data as JSON instead of a table/text; `pvectl schema` prints pvectl's full command tree (names, flags, descriptions) as JSON for introspection, with each command classified as `safe`, `mutating`, or `destructive` so an agent can gauge risk before calling something
