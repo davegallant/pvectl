@@ -90,6 +90,69 @@ Once setup is complete, you can run `pvectl status` to verify your cluster is he
 
 For full usage instructions, see [`the cli docs`](docs/cli/pvectl.md).
 
+### Examples
+
+List containers across the cluster:
+
+```console
+$ pvectl ct ls
+VMID  NAME                         NODE      STATUS
+100   radarr                       pve-g3-1  running
+101   umami                        pve-g3-2  running
+103   speedtest-tracker            pve-g3-1  running
+104   immich                       pve-g3-1  running
+108   jellyfin                     pve-g3-1  running
+117   gyb                          pve-g3-1  stopped
+```
+
+Get a quick health summary for one container, by name or vmid:
+
+```console
+$ pvectl ct summary jellyfin
+Container 108 (jellyfin) on node "pve-g3-1"
+
+Status        running
+HA State      none
+Node          pve-g3-1
+Unprivileged  yes
+
+CPU usage      0.00% of 4 CPUs
+Memory usage   16.32% (668.3M of 4G)
+SWAP usage     N/A
+Bootdisk size  33.67% (21G of 62.4G)
+
+IPs:
+  eth0: 192.168.1.27
+  docker0: 172.17.0.1
+  br-ce76d6037564: 172.18.0.1
+  tailscale0: 100.126.69.73
+```
+
+Grow a container's root disk on the fly:
+
+```console
+$ pvectl ct resize changedetection --size "+1G"
+✓ resized changedetection (138) disk rootfs to +1G (1s)
+```
+
+Check storage usage across every node in the cluster:
+
+```console
+$ pvectl storage ls
+NAME                USED    TOTAL   USE  HEALTH
+local@pve-g3-1      46.8G   67.7G   69%  OK
+local@pve-g3-2      53.3G   93.9G   57%  OK
+local-lvm@pve-g3-1  106.9G  141.2G  76%  OK
+local-lvm@pve-g3-2  184.4G  794.3G  23%  OK
+moredata            221.4G  912.8G  24%  OK
+proxmox-backups     762.1G  4.8T    15%  OK
+proxmox-iso         762.1G  4.8T    15%  OK
+```
+
+Other frequently used commands: `pvectl ct start/stop/restart <name>`,
+`pvectl qm ls`, `pvectl status`, and `pvectl tasks ls --watch` for a
+live-refreshing view of cluster activity.
+
 ### Backups
 
 Backups can be created, deleted, listed, and restored with `pvectl ct backups` and `pvectl qm backups`.
@@ -195,10 +258,6 @@ pvectl ct config append <name-or-vmid> \
 > [!NOTE]
 > Proxmox's REST API doesn't expose raw `lxc.*` directives at all, so this
 > falls back to `ssh <node> cat >> /etc/pve/lxc/<vmid>.conf`.
-
-### Cluster tasks
-
-The cluster's recent tasks can be listed with `pvectl tasks list` (alias `ls`), with a live-refreshing view available via `--watch`.
 
 ## License
 
