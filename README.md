@@ -48,7 +48,7 @@ script and run it with `PVECTL_VERSION` and `INSTALL_DIR`:
 
 ```sh
 curl -fsSLo install.sh https://raw.githubusercontent.com/davegallant/pvectl/main/scripts/install.sh
-PVECTL_VERSION=v0.4.0 INSTALL_DIR="$HOME/.local/bin" sh install.sh
+PVECTL_VERSION=v0.4.1 INSTALL_DIR="$HOME/.local/bin" sh install.sh
 ```
 
 Add that directory to `PATH` if needed. Checksums detect accidental

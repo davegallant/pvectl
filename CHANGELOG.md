@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-## 0.4.0
+## 0.4.1
 
+- Fixed Windows release smoke testing to extract the `.tar.gz` archive GoReleaser produces, so it no longer blocks publishing
 - `status`, `tasks list` (including `--watch`), and `tasks status/logs` now pass the command context into API fetches, so cancellation stops in-flight requests instead of only ending the interval between refreshes
 - Installer now downloads and verifies release archives against `checksums.txt` before extraction, supports `PVECTL_VERSION` pinning and user-local `INSTALL_DIR`, and tests checksum failure and unsupported platforms
 - Added read-only `pvectl doctor` (`-o json` supported) to diagnose local config and secret backend, TLS/API connectivity, effective token permissions, and guest visibility with remediation hints
