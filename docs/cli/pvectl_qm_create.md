@@ -20,6 +20,7 @@ pvectl qm create [flags]
       --name string         VM name (prompts if omitted)
       --net0 string         network interface config (Proxmox net0 syntax) (default "virtio,bridge=vmbr0")
       --node string         node to create the VM on (prompts if omitted)
+      --non-interactive     never prompt; require node, storage and name (omitted ISO/start means none/no start)
       --ostype string       guest OS type, e.g. l26, win11 (see Proxmox docs) (default "l26")
       --scsihw string       SCSI controller type (default "virtio-scsi-pci")
       --sshkeys string      path to an SSH public key file to authorize for the cloud-init user (optional)

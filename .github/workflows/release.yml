@@ -6,7 +6,95 @@ on:
       - '*'
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Vet
+        run: go vet ./...
+      - name: Lint
+        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9
+      - name: Test
+        run: go test ./...
+      - name: CLI docs are current
+        run: |
+          go run ./tools/gendocs
+          if [ -n "$(git status --porcelain -- docs/cli/)" ]; then
+            git status --short -- docs/cli/
+            exit 1
+          fi
+
+  package:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Build release archives without publishing
+        uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7
+        with:
+          args: release --snapshot --clean
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CGO_ENABLED: 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-archives
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+
+  smoke:
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            archive: '*linux_amd64.tar.gz'
+            binary: pvectl
+          - os: macos-15-intel
+            archive: '*darwin_amd64.tar.gz'
+            binary: pvectl
+          - os: windows-latest
+            archive: '*windows_amd64.zip'
+            binary: pvectl.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-archives
+          path: dist
+      - name: Extract and start the release binary
+        shell: bash
+        env:
+          ARCHIVE_PATTERN: ${{ matrix.archive }}
+          BINARY: ${{ matrix.binary }}
+        run: |
+          archive=$(find dist -maxdepth 1 -type f -name "$ARCHIVE_PATTERN" -print -quit)
+          test -n "$archive"
+          mkdir extracted
+          if [[ "$archive" == *.zip ]]; then
+            unzip -q "$archive" -d extracted
+          else
+            tar -xzf "$archive" -C extracted
+          fi
+          "./extracted/$BINARY" --version
+          "./extracted/$BINARY" schema > schema.json
+          test -s schema.json
+
   goreleaser:
+    needs: [validate, smoke]
     runs-on: ubuntu-latest
     steps:
       -

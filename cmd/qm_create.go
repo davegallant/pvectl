@@ -13,23 +13,24 @@ import (
 )
 
 var (
-	qmCreateNode       string
-	qmCreateName       string
-	qmCreateVMID       int
-	qmCreateCores      int
-	qmCreateMemory     int
-	qmCreateStorage    string
-	qmCreateDiskSize   int
-	qmCreateNet0       string
-	qmCreateSCSIHW     string
-	qmCreateOSType     string
-	qmCreateISO        string
-	qmCreateTags       string
-	qmCreateCIUser     string
-	qmCreateCIPassword string
-	qmCreateSSHKeyFile string
-	qmCreateIPConfig0  string
-	qmCreateStart      bool
+	qmCreateNode           string
+	qmCreateName           string
+	qmCreateVMID           int
+	qmCreateCores          int
+	qmCreateMemory         int
+	qmCreateStorage        string
+	qmCreateDiskSize       int
+	qmCreateNet0           string
+	qmCreateSCSIHW         string
+	qmCreateOSType         string
+	qmCreateISO            string
+	qmCreateTags           string
+	qmCreateCIUser         string
+	qmCreateCIPassword     string
+	qmCreateSSHKeyFile     string
+	qmCreateIPConfig0      string
+	qmCreateStart          bool
+	qmCreateNonInteractive bool
 )
 
 var qmCreateCmd = &cobra.Command{
@@ -37,6 +38,14 @@ var qmCreateCmd = &cobra.Command{
 	Short:       "Create a new QEMU VM",
 	Annotations: mutationAnnotation(mutationMutating),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if qmCreateNonInteractive {
+			if err := validateNonInteractiveCreate(map[string]string{"node": qmCreateNode, "storage": qmCreateStorage, "name": qmCreateName}); err != nil {
+				return err
+			}
+			if err := validateNonInteractivePassword(qmCreateCIPassword); err != nil {
+				return err
+			}
+		}
 		client, err := loadClient()
 		if err != nil {
 			return friendlySetupError(err)
@@ -63,6 +72,7 @@ func init() {
 	qmCreateCmd.Flags().StringVar(&qmCreateSSHKeyFile, "sshkeys", "", "path to an SSH public key file to authorize for the cloud-init user (optional)")
 	qmCreateCmd.Flags().StringVar(&qmCreateIPConfig0, "ipconfig0", "", "cloud-init network config, e.g. ip=dhcp or ip=10.0.0.5/24,gw=10.0.0.1 (optional)")
 	qmCreateCmd.Flags().BoolVar(&qmCreateStart, "start", false, "start the VM after creating it (prompts if omitted)")
+	qmCreateCmd.Flags().BoolVar(&qmCreateNonInteractive, "non-interactive", false, "never prompt; require node, storage and name (omitted ISO/start means none/no start)")
 	qmCmd.AddCommand(qmCreateCmd)
 }
 
@@ -156,6 +166,14 @@ func resolveCIPassword(value string) (string, error) {
 // content) is reused as-is rather than duplicated, since it already lists
 // exactly the storages a QEMU disk can live on.
 func runQmCreate(client *api.Client, startFlagSet bool) error {
+	if qmCreateNonInteractive {
+		if err := validateNonInteractiveCreate(map[string]string{"node": qmCreateNode, "storage": qmCreateStorage, "name": qmCreateName}); err != nil {
+			return err
+		}
+		if err := validateNonInteractivePassword(qmCreateCIPassword); err != nil {
+			return err
+		}
+	}
 	// Checked before any prompting or API call so a bad flag combination
 	// fails instantly rather than after the user has answered prompts.
 	ciFlags := setCloudInitFlags(qmCreateCIUser, qmCreateCIPassword, qmCreateSSHKeyFile, qmCreateIPConfig0)
@@ -204,7 +222,7 @@ func runQmCreate(client *api.Client, startFlagSet bool) error {
 	// play — the two are mutually exclusive (see above), so there'd be
 	// nothing valid to pick.
 	iso := qmCreateISO
-	if iso == "" && len(ciFlags) == 0 {
+	if iso == "" && len(ciFlags) == 0 && !qmCreateNonInteractive {
 		var err error
 		iso, err = promptISO(client, node)
 		if err != nil {
@@ -255,7 +273,7 @@ func runQmCreate(client *api.Client, startFlagSet bool) error {
 	}
 
 	start := qmCreateStart
-	if !startFlagSet {
+	if !startFlagSet && !qmCreateNonInteractive {
 		start = promptYesNo(fmt.Sprintf("start VM %s (%d) now? [y/N]: ", name, vmid))
 	}
 	if !start {

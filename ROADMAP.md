@@ -62,19 +62,17 @@ The next milestone should make existing workflows more dependable.
   page. The API behavior was checked against Proxmox documentation and
   developer discussion; live-cluster validation remains open.
 
-- [ ] **Add explicit scripted configuration updates.**
-  Consider `ct/qm config set` and `config unset` for regular API fields,
-  with digest protection and a clear change summary. Today users must use
-  an editor or assemble raw API calls; deleting fields in the editor is
-  deliberately unsupported. Keep raw `lxc.*` lines outside this feature.
-  Define and test Proxmox field-removal behavior before implementation.
+- [x] **Add explicit scripted configuration updates.**
+  `ct/qm config set` and `config unset` change one regular API field at a
+  time with the fetched digest and a clear summary. Removal uses
+  Proxmox's `delete` parameter. Raw `lxc.*` and volume-backed fields are
+  excluded; deleting lines in the editor remains unsupported.
 
-- [ ] **Make unattended creation explicit.**
-  Add a non-interactive mode that reports all missing inputs before making
-  changes, while preserving existing prompts for human use. An omitted
-  optional ISO or post-create start choice should have documented behavior
-  in this mode. Test complete commands with closed stdin and incomplete
-  commands that must fail before sending a create request.
+- [x] **Make unattended creation explicit.**
+  `ct/qm create --non-interactive` reports all missing required inputs
+  before any create request. An omitted ISO means disk-only; an omitted
+  `--start` means leave stopped. Tests cover closed stdin and missing
+  inputs before mutation.
 
 - [ ] **Provide a read-only diagnostic command.**
   A `doctor` command could report config location/backend, API connectivity,
@@ -115,12 +113,13 @@ The next milestone should make existing workflows more dependable.
   and document `INSTALL_DIR` for user-local installs. Test checksum failure
   and unsupported platforms. Checksums detect corruption; they do not
   independently authenticate a compromised release source.
-- [ ] **Gate publishing on validation.**
-  [Release CI](.github/workflows/release.yml) and validation are separate
-  workflows, so publishing does not depend on tests/lint succeeding.
-  Require validation before release publication. Add platform smoke tests
-  for the Linux, macOS, and Windows artifacts already configured for build,
-  and document which console/keychain combinations are actually tested.
+- [x] **Gate publishing on validation.**
+  [Release CI](.github/workflows/release.yml) now requires vet, lint,
+  tests, generated-doc checks, and Linux/macOS/Windows smoke tests of
+  GoReleaser snapshot archives before GoReleaser can publish. Arm64
+  archives are cross-built but not executed in CI. These checks do not exercise
+  a live cluster, SSH/API consoles, or OS keychains; those remain manual
+  integration checks against a disposable cluster.
 - [ ] **Carry cancellation through command execution.** Gradually replace
   command-level `context.Background()` calls with a shared command context,
   especially in watches and multi-step operations. Verify that cancellation

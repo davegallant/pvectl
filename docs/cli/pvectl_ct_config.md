@@ -22,4 +22,6 @@ Manage a container's config
 * [pvectl ct](pvectl_ct.md)	 - Manage containers
 * [pvectl ct config append](pvectl_ct_config_append.md)	 - Append raw lxc.* config lines (e.g. cgroup rules, bind mounts) not exposed by the Proxmox API (requires SSH)
 * [pvectl ct config edit](pvectl_ct_config_edit.md)	 - Edit a container's config in $EDITOR
+* [pvectl ct config set](pvectl_ct_config_set.md)	 - Set a regular config field with digest protection
+* [pvectl ct config unset](pvectl_ct_config_unset.md)	 - Unset a regular config field with digest protection
 * [pvectl ct config view](pvectl_ct_config_view.md)	 - Show a container's config

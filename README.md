@@ -251,6 +251,27 @@ pvectl qm create --name web01 --ciuser debian \
 Pass `--cipassword -` to be prompted for the password instead of putting
 it in your shell history.
 
+For scripts, pass `--non-interactive`. Container creation then requires
+`--node`, `--template`, `--storage`, and `--hostname`; VM creation requires
+`--node`, `--storage`, and `--name`. Missing flags are reported together
+before creation. Omitting `--iso` creates a disk-only VM, and omitting
+`--start` leaves either guest stopped; `--vmid` may still be omitted to
+auto-assign an ID.
+
+Structured config fields can also be changed without an editor:
+
+```sh
+pvectl ct config set web01 description 'web server'
+pvectl qm config unset oldvm description
+```
+
+`set` and `unset` fetch the current config and send its digest to protect
+against concurrent changes. They do not handle raw `lxc.*` lines or
+volume-backed fields (disks, mounts), API control parameters, or QEMU
+`sshkeys` (which needs special encoding); use the dedicated commands or
+Proxmox UI for those. `unset` uses Proxmox's field-removal API, unlike
+deleting a line in `config edit`, which remains unsupported.
+
 > [!NOTE]
 > Cloud-init cannot be combined with `--iso` — both occupy `ide2`, and a
 > cloud-init VM boots an imported cloud image rather than installing from
@@ -385,6 +406,15 @@ pvectl ct config append <name-or-vmid> \
 > [!NOTE]
 > Proxmox's REST API doesn't expose raw `lxc.*` directives at all, so this
 > falls back to `ssh <node> cat >> /etc/pve/lxc/<vmid>.conf`.
+
+### Validation coverage
+
+Release CI runs vet, lint, unit tests, generated-doc checks, and launches
+GoReleaser-built amd64 archives on Linux, macOS, and Windows. Arm64
+archives are cross-built but not executed. CI does not connect to a live
+Proxmox cluster or exercise SSH/API consoles or real OS keychains; the
+keychain tests use an in-memory fake. Those combinations need manual
+integration testing against a disposable cluster before relying on them.
 
 ## License
 

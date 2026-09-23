@@ -13,23 +13,24 @@ import (
 )
 
 var (
-	ctCreateNode         string
-	ctCreateTemplate     string
-	ctCreateStorage      string
-	ctCreateHostname     string
-	ctCreateVMID         int
-	ctCreateCores        int
-	ctCreateMemory       int
-	ctCreateSwap         int
-	ctCreateDiskSize     int
-	ctCreateNet0         string
-	ctCreateUnprivileged bool
-	ctCreateFeatures     string
-	ctCreateArch         string
-	ctCreatePassword     string
-	ctCreateSSHKeyFile   string
-	ctCreateTags         string
-	ctCreateStart        bool
+	ctCreateNode           string
+	ctCreateTemplate       string
+	ctCreateStorage        string
+	ctCreateHostname       string
+	ctCreateVMID           int
+	ctCreateCores          int
+	ctCreateMemory         int
+	ctCreateSwap           int
+	ctCreateDiskSize       int
+	ctCreateNet0           string
+	ctCreateUnprivileged   bool
+	ctCreateFeatures       string
+	ctCreateArch           string
+	ctCreatePassword       string
+	ctCreateSSHKeyFile     string
+	ctCreateTags           string
+	ctCreateStart          bool
+	ctCreateNonInteractive bool
 )
 
 var ctCreateCmd = &cobra.Command{
@@ -37,6 +38,11 @@ var ctCreateCmd = &cobra.Command{
 	Short:       "Create a new LXC container",
 	Annotations: mutationAnnotation(mutationMutating),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if ctCreateNonInteractive {
+			if err := validateNonInteractiveCreate(map[string]string{"node": ctCreateNode, "template": ctCreateTemplate, "storage": ctCreateStorage, "hostname": ctCreateHostname}); err != nil {
+				return err
+			}
+		}
 		client, err := loadClient()
 		if err != nil {
 			return friendlySetupError(err)
@@ -63,6 +69,7 @@ func init() {
 	ctCreateCmd.Flags().StringVar(&ctCreateSSHKeyFile, "ssh-public-key-file", "", "path to an SSH public key file to authorize for root (optional)")
 	ctCreateCmd.Flags().StringVar(&ctCreateTags, "tags", "", "comma-separated tags to apply, e.g. media,arr (optional)")
 	ctCreateCmd.Flags().BoolVar(&ctCreateStart, "start", false, "start the container after creating it (prompts if omitted)")
+	ctCreateCmd.Flags().BoolVar(&ctCreateNonInteractive, "non-interactive", false, "never prompt; require node, template, storage and hostname (omitted --start means no start)")
 	ctCmd.AddCommand(ctCreateCmd)
 }
 
@@ -183,6 +190,11 @@ func promptYesNo(prompt string) bool {
 // *cobra.Command through) so this stays directly callable from tests,
 // matching runCtMigrate's plain-argument style.
 func runCtCreate(client *api.Client, startFlagSet bool) error {
+	if ctCreateNonInteractive {
+		if err := validateNonInteractiveCreate(map[string]string{"node": ctCreateNode, "template": ctCreateTemplate, "storage": ctCreateStorage, "hostname": ctCreateHostname}); err != nil {
+			return err
+		}
+	}
 	node := ctCreateNode
 	if node == "" {
 		var err error
@@ -266,7 +278,7 @@ func runCtCreate(client *api.Client, startFlagSet bool) error {
 	}
 
 	start := ctCreateStart
-	if !startFlagSet {
+	if !startFlagSet && !ctCreateNonInteractive {
 		start = promptYesNo(fmt.Sprintf("start container %s (%d) now? [y/N]: ", hostname, vmid))
 	}
 	if !start {

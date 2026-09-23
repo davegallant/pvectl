@@ -18,6 +18,7 @@ pvectl ct create [flags]
       --memory int                   memory in MB (default 512)
       --net0 string                  network interface config (Proxmox net0 syntax) (default "name=eth0,bridge=vmbr0,ip=dhcp")
       --node string                  node to create the container on (prompts if omitted)
+      --non-interactive              never prompt; require node, template, storage and hostname (omitted --start means no start)
       --password string              root password (optional; omit along with --ssh-public-key-file for console-only access)
       --ssh-public-key-file string   path to an SSH public key file to authorize for root (optional)
       --start                        start the container after creating it (prompts if omitted)

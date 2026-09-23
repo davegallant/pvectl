@@ -343,6 +343,13 @@ func (c *Client) PutVMConfig(ctx context.Context, node string, vmid int, changed
 	return classifyPutError(c.do(ctx, http.MethodPut, path, strings.NewReader(form.Encode()), nil))
 }
 
+// DeleteVMConfigField removes one structured field via Proxmox's delete parameter.
+func (c *Client) DeleteVMConfigField(ctx context.Context, node string, vmid int, field, digest string) error {
+	path := fmt.Sprintf("/nodes/%s/qemu/%d/config", node, vmid)
+	form := url.Values{"digest": {digest}, "delete": {field}}
+	return classifyPutError(c.do(ctx, http.MethodPut, path, strings.NewReader(form.Encode()), nil))
+}
+
 // VMStatus is a QEMU VM's live status, as returned by
 // GET /nodes/{node}/qemu/{vmid}/status/current. Unlike LXCStatus, there's
 // no swap/maxswap pair — QEMU's guest swap isn't visible via cgroups the

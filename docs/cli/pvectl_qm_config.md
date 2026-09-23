@@ -21,4 +21,6 @@ Manage a VM's config
 
 * [pvectl qm](pvectl_qm.md)	 - Manage QEMU VMs
 * [pvectl qm config edit](pvectl_qm_config_edit.md)	 - Edit a VM's config in $EDITOR
+* [pvectl qm config set](pvectl_qm_config_set.md)	 - Set a regular config field with digest protection
+* [pvectl qm config unset](pvectl_qm_config_unset.md)	 - Unset a regular config field with digest protection
 * [pvectl qm config view](pvectl_qm_config_view.md)	 - Show a VM's config

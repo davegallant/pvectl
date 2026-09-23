@@ -287,6 +287,14 @@ func (c *Client) PutConfig(ctx context.Context, node string, vmid int, changed m
 	return classifyPutError(c.do(ctx, http.MethodPut, path, strings.NewReader(form.Encode()), nil))
 }
 
+// DeleteConfigField removes one structured field using Proxmox's delete
+// parameter. Callers must keep volume-backed and raw lxc.* fields out.
+func (c *Client) DeleteConfigField(ctx context.Context, node string, vmid int, field, digest string) error {
+	path := fmt.Sprintf("/nodes/%s/lxc/%d/config", node, vmid)
+	form := url.Values{"digest": {digest}, "delete": {field}}
+	return classifyPutError(c.do(ctx, http.MethodPut, path, strings.NewReader(form.Encode()), nil))
+}
+
 // LXCStatus is a container's live status/resource usage, as returned by
 // GET /nodes/{node}/lxc/{vmid}/status/current. Unlike Container (from
 // /cluster/resources), this has the byte-level mem/swap/disk usage `ct

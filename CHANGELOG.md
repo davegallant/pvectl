@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added `ct/qm config set` and `config unset` for scriptable, digest-protected regular field changes; raw LXC lines and volume-backed fields are excluded
+- Added `--non-interactive` to `ct/qm create`, requiring all prompt-only inputs up front while defaulting optional ISO and post-create start to none/no
+- Release publishing now waits for vet, lint, tests, generated CLI docs, and Linux/macOS/Windows smoke checks of GoReleaser-built archives
 - Added `pvectl tasks status/logs/wait <upid>` so an interrupted task can be inspected or waited on later. Task log fetches now page through all reported lines instead of stopping at Proxmox's default first page
 - `--output json` now fails early for text-only commands and cannot be combined with `tasks list --watch`; watches require a terminal. Config and file-backed secret updates now replace files through private temporary files, preserving existing data on a failed replacement and correcting permissive file modes
 - Task waits now exit non-zero on interruption and stop follow-up steps such as starting a newly created guest; three consecutive status polling errors also end the wait with the task UPID and last error. Added `--wait-timeout` to bound the wait for an asynchronous Proxmox task without cancelling the task itself
