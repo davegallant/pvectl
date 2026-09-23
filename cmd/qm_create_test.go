@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -114,6 +116,54 @@ func TestRunQmCreateSkipsStartWhenNotRequested(t *testing.T) {
 	}
 	if startCalled {
 		t.Error("runQmCreate() called start despite --start not being set")
+	}
+}
+
+func TestRunQmCreateInterruptedWaitDoesNotStartVM(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	oldContext := rootCmd.Context()
+	rootCmd.SetContext(ctx)
+	defer rootCmd.SetContext(oldContext)
+
+	startCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api2/json/nodes/pve1/qemu" && r.Method == http.MethodPost:
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:pve1:create"})
+			cancel()
+		case strings.HasSuffix(r.URL.Path, "/status/start"):
+			startCalled = true
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:pve1:start"})
+		default:
+			t.Errorf("unexpected request path = %q", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	qmCreateNode = "pve1"
+	qmCreateStorage = "local-lvm"
+	qmCreateName = "web01"
+	qmCreateVMID = 201
+	qmCreateDiskSize = 32
+	qmCreateISO = "local:iso/ubuntu-24.04.iso"
+	qmCreateStart = true
+	defer func() {
+		qmCreateNode = ""
+		qmCreateStorage = ""
+		qmCreateName = ""
+		qmCreateVMID = 0
+		qmCreateISO = ""
+		qmCreateStart = false
+	}()
+
+	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
+	err := runQmCreate(client, true)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("runQmCreate() error = %v, want context.Canceled", err)
+	}
+	if startCalled {
+		t.Error("runQmCreate() started VM after create wait was interrupted")
 	}
 }
 

@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -69,7 +71,7 @@ func runPollTaskQuietCapturingStdout(t *testing.T, client *api.Client, node, upi
 	origStdout := os.Stdout
 	os.Stdout = w
 
-	runErr = pollTaskQuiet(client, node, upid, label, verbDone)
+	runErr = pollTaskQuiet(context.Background(), client, node, upid, label, verbDone)
 
 	os.Stdout = origStdout
 	_ = w.Close()
@@ -149,5 +151,105 @@ func TestPollTaskQuietPrintsTaskLogOnRealFailure(t *testing.T) {
 	}
 	if !strings.Contains(output, "unable to open") {
 		t.Errorf("output = %q, want it to contain the actual task log line, not just the bare exit status", output)
+	}
+}
+
+func TestInterruptedTaskWaitReturnsErrorWithUPID(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	client := api.NewClient("http://127.0.0.1:1", "user@pve!test", "secret", true)
+	const upid = "UPID:pve1:create"
+
+	for _, tc := range []struct {
+		name string
+		wait func() error
+	}{
+		{"quiet", func() error { return pollTaskQuiet(ctx, client, "pve1", upid, "creating VM", "created VM") }},
+		{"interactive", func() error { return watchTask(ctx, client, "pve1", upid, "creating VM", "created VM") }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.wait()
+			if !errors.Is(err, context.Canceled) {
+				t.Errorf("wait error = %v, want context.Canceled", err)
+			}
+			if err == nil || !strings.Contains(err.Error(), upid) {
+				t.Errorf("wait error = %v, want UPID %s", err, upid)
+			}
+		})
+	}
+}
+
+func TestTaskWaitStopsAfterPersistentPollFailures(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"message":"node unavailable"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := pollTaskQuiet(ctx, client, "pve1", "UPID:pve1:create", "creating VM", "created VM")
+	if err == nil || !strings.Contains(err.Error(), "node unavailable") || !strings.Contains(err.Error(), "UPID:pve1:create") {
+		t.Errorf("wait error = %v, want last polling error and UPID", err)
+	}
+	if requests != 3 {
+		t.Errorf("status requests = %d, want 3 before failing", requests)
+	}
+}
+
+func TestTaskWaitRecoversAfterTransientPollError(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if requests == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"message":"brief outage"}`))
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"status": "stopped", "exitstatus": "OK"}})
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := pollTaskQuiet(ctx, client, "pve1", "UPID:pve1:create", "creating VM", "created VM"); err != nil {
+		t.Errorf("wait error = %v, want recovery", err)
+	}
+	if requests != 2 {
+		t.Errorf("status requests = %d, want 2", requests)
+	}
+}
+
+func TestTaskWaitTimeoutRetainsUPID(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	client := api.NewClient("http://127.0.0.1:1", "user@pve!test", "secret", true)
+	err := pollTaskQuiet(ctx, client, "pve1", "UPID:pve1:create", "creating VM", "created VM")
+	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "UPID:pve1:create") {
+		t.Errorf("wait error = %v, want deadline and UPID", err)
+	}
+}
+
+func TestRunProgressActionHonorsWaitTimeout(t *testing.T) {
+	oldTimeout := taskWaitTimeout
+	taskWaitTimeout = 20 * time.Millisecond
+	defer func() { taskWaitTimeout = oldTimeout }()
+	client := api.NewClient("http://127.0.0.1:1", "user@pve!test", "secret", true)
+	err := runProgressAction(client, "pve1", "UPID:pve1:create", "creating VM", "created VM")
+	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "UPID:pve1:create") {
+		t.Errorf("runProgressAction() error = %v, want deadline and UPID", err)
+	}
+}
+
+func TestNegativeWaitTimeoutIsRejected(t *testing.T) {
+	oldTimeout := taskWaitTimeout
+	taskWaitTimeout = -time.Second
+	defer func() { taskWaitTimeout = oldTimeout }()
+	if err := validateOutputFormat(rootCmd, nil); err == nil || !strings.Contains(err.Error(), "--wait-timeout") {
+		t.Errorf("validateOutputFormat() error = %v, want --wait-timeout validation", err)
 	}
 }

@@ -30,9 +30,9 @@ Module path `github.com/davegallant/pvectl`, binary name `pvectl` (built from
   only on the Proxmox host itself. Rewritten in Go against the REST API so
   it runs from any machine.
 - REST API instead of shelling out to `pct`/`qm`: works from anywhere, not
-  just the Proxmox host. `enter` is the one exception — there's no REST
-  equivalent for an interactive console, so it still shells out to `ssh
-  <node> pct enter <vmid>` / `qm terminal <vmid>`.
+  just the Proxmox host. `enter` defaults to SSH (`pct enter` / `qm
+  terminal`) but also supports Proxmox's console websocket via
+  `--method api` or the configured console method.
 - `setup` validates credentials (`GET /version`) before writing anything to
   disk/keychain. Every other command fails fast pointing to `pvectl setup`
   if config/secret is missing, rather than auto-invoking setup itself.
@@ -45,14 +45,14 @@ Module path `github.com/davegallant/pvectl`, binary name `pvectl` (built from
   trading some duplication for lower risk to the already-shipped, tested
   `ct` path when `qm` was added: `qm_select.go` parallels `select.go`
   (sharing only package-level helpers), `qemu.go` parallels `lxc.go` (same
-  REST shapes, different paths), and `qm enter` uses `qm terminal` (works
-  only with a serial console configured, its own Ctrl-O detach key, hinted
-  before attaching — a real UX gap vs. `ct enter`, not something pvectl can
-  paper over). `internal/editconf` is fully shared, since it has no
+  REST shapes, different paths), and the SSH method of `qm enter` uses
+  `qm terminal` (works only with a serial console configured, with its own
+  Ctrl-O detach key hinted before attaching). The API console method also
+  needs a serial console for a VM. `internal/editconf` is fully shared, since it has no
   guest-type-specific coupling. `VMConfig` has no
   `RawLXC`-equivalent field, since flat QEMU configs have nothing to strip
   before diffing.
-- `status` hits two endpoints — `/cluster/resources` (per-node CPU/mem,
+- `status` hits three endpoints — `/version`, `/cluster/resources` (per-node CPU/mem,
   containers/VMs/storage) and `/cluster/status` (node IPs, cluster
   name/quorum, absent for a standalone node) — merged by node name; all
   calls must succeed or `status` hard-errors, no partial report. Byte sizes
@@ -213,8 +213,10 @@ These were each found via live debugging against a real Proxmox cluster
 - No generic Proxmox config editor beyond what `edit` needs — no
   node-level or storage-level configuration.
 - No filtering/sorting flags anywhere — add only if an actual need shows up.
-- No packaging/distribution automation (Homebrew formula, GitHub releases).
-- `status` only counts VMs; managing them is `qm`'s job.
+- Release automation uses GoReleaser, with GitHub releases and a Homebrew
+  formula; the installer script and Nix flake are also maintained here.
+- `status` counts both containers and VMs; resource management stays under
+  `ct` and `qm`.
 - `pvectl ct config edit` cannot add/remove raw `lxc.*` passthrough lines
   (see above) — would require `Config.Fields` to support ordered/repeating
   keys (it's currently a plain map) to do this properly. Revisit only if
@@ -303,7 +305,7 @@ These were each found via live debugging against a real Proxmox cluster
   ... same with pvectl qm edit") — `ctConfigCmd`/`qmConfigCmd` are
   package-level vars (`ct_config.go`/`qm_config.go`) specifically so
   `edit.go`/`qm_edit.go`'s own `init()` can register into them from a
-  different file. `qmConfigCmd` exists purely to hold `edit` today (no
+  different file. `qmConfigCmd` holds `view` and `edit` today (no
   `append` mirror — see above), not because `qm` needs its own config
   group otherwise.
 - `qm destroy` (`cmd/qm_delete.go`, aliased `delete`) mirrors `ct destroy`
@@ -327,8 +329,8 @@ These were each found via live debugging against a real Proxmox cluster
   error, not a raw HTTP status. A TLS certificate failure produces a
   specific hint to re-run `pvectl setup --insecure-skip-verify` for
   self-signed clusters. Missing credentials are checked up front for every
-  command except `setup`, before any network call. SSH-based commands
-  (`ct enter`, `qm enter`) propagate SSH's own exit code and let its error
+  command except `setup`, before any network call. The SSH method of
+  `ct enter`/`qm enter` propagates SSH's own exit code and lets its error
   output speak for itself — no custom wrapping.
 - Any command that unconditionally shells out to SSH (rather than SSH being
   just the default `--method`, like `ct enter`/`qm enter` which already say

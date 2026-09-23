@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/davegallant/pvectl/internal/privatefile"
 )
 
 // FileStoreDir returns the directory the file-based secret store's file
@@ -73,7 +75,7 @@ func writeSecretsFile(m map[string]string) error {
 		return fmt.Errorf("encoding secrets file: %w", err)
 	}
 
-	return os.WriteFile(path, data, 0o600)
+	return privatefile.Write(path, data)
 }
 
 func (FileStore) Get(host string) (string, error) {

@@ -1,15 +1,15 @@
-## pvectl ct config view
+## pvectl tasks wait
 
-Show a container's config
+Wait for a Proxmox task and report its outcome
 
 ```
-pvectl ct config view <name-or-vmid> [flags]
+pvectl tasks wait <upid> [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for view
+  -h, --help   help for wait
 ```
 
 ### Options inherited from parent commands
@@ -23,4 +23,4 @@ pvectl ct config view <name-or-vmid> [flags]
 
 ### SEE ALSO
 
-* [pvectl ct config](pvectl_ct_config.md)	 - Manage a container's config
+* [pvectl tasks](pvectl_tasks.md)	 - Manage cluster tasks

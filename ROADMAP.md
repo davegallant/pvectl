@@ -20,54 +20,47 @@ The next milestone should make existing workflows more dependable.
 
 ## Now: reliability and automation correctness
 
-- [ ] **Distinguish interrupted waits from successful operations.**
-  Both wait paths in [cmd/progress.go](cmd/progress.go) return `nil` on
-  cancellation. Scripts consequently receive success without a confirmed
-  result. More seriously, [QM creation](cmd/qm_create.go) can proceed to
-  its start step after an interrupted create wait. Return a distinct
-  interruption result, preserve the UPID, and prevent subsequent workflow
-  steps. Cancelling a wait must continue to leave the server task running.
-  Verify interruption in both terminal and piped modes, including create
+- [x] **Distinguish interrupted waits from successful operations.**
+  Both wait paths in [cmd/progress.go](cmd/progress.go) now return a
+  cancellation error with the UPID. Scripts exit non-zero and multi-step
+  commands such as [QM creation](cmd/qm_create.go) stop before their next
+  action when task completion is unconfirmed. Cancelling a wait leaves the
+  server task running. Covered for terminal and piped modes and VM creation
   with `--start`.
 
-- [ ] **Bound failures while monitoring a task.**
-  [cmd/progress.go](cmd/progress.go) silently retries every polling error
-  indefinitely. The 30-second HTTP timeout bounds a request, not the wait:
-  persistent authentication failures or an unavailable node can strand a
-  script forever. Surface polling errors, bound consecutive failures, and
-  offer an explicit wait timeout. Preserve the last error and UPID on exit;
-  never retry the original mutation automatically. Test transient recovery,
+- [x] **Bound failures while monitoring a task.**
+  [cmd/progress.go](cmd/progress.go) reports the first polling error,
+  retries brief failures, and ends the wait after three consecutive errors
+  with the last error and UPID. `--wait-timeout` provides an optional bound
+  for the whole wait, separate from the 30-second per-request HTTP timeout.
+  Neither path retries the original mutation. Covered for transient recovery,
   persistent failure, and deadline expiry.
 
-- [ ] **Make output modes predictable.**
-  [Task watch](cmd/tasks.go) always emits terminal escape sequences and
-  refresh text, even with `-o json`; [status watch](cmd/status.go) also
-  always renders terminal controls. Reject unsupported combinations or
-  define a documented streaming format. The global output flag is also
-  accepted by actions whose [progress renderer](cmd/progress.go) emits
-  plain text. Either support structured action results (including UPID,
-  outcome, and warnings) or reject JSON where unsupported. Keep diagnostics
-  on stderr. Validate actual CLI stdout, not just rendering helpers.
+- [x] **Make output modes predictable.**
+  `-o json` now rejects commands that emit text, including mutating
+  actions and `status`. `tasks list --watch` cannot be combined with JSON,
+  and both watches require a terminal to prevent escape sequences in piped
+  output. Supported list/summary/config reads and raw API calls retain
+  JSON output. Errors are reported before any network call.
 
-- [ ] **Write credentials atomically and enforce file permissions.**
+- [x] **Write credentials through private replacement files.**
   [FileStore](internal/secrets/file.go) and
-  [config.Save](internal/config/config.go) overwrite files directly with
-  `os.WriteFile(..., 0600)`. Interrupted writes can leave truncated files;
-  the supplied mode does not repair permissions on an existing file.
-  Write a private temporary file in the same directory and replace the
-  destination atomically, with platform-appropriate permission handling.
-  Test replacing a permissive existing file and failed writes without
-  touching the real keychain.
+  [config.Save](internal/config/config.go) now write a `0600` temporary
+  file in the destination directory and rename it over the original after
+  syncing it. This corrects a permissive existing file mode and leaves
+  the original target untouched if replacement fails. Tests use temporary
+  directories and never touch the real keychain. Atomic rename semantics
+  can vary by platform and filesystem.
 
 ## Next: complete common workflows
 
-- [ ] **Add `tasks status`, `tasks logs`, and `tasks wait`.**
-  [The task command group](cmd/tasks.go) currently exposes only `list`.
-  Make the UPID printed after interruption directly usable to inspect a
-  result, retrieve diagnostics, or resume waiting. Reuse the corrected
-  wait implementation. Audit log pagination: [TaskLog](internal/api/tasks.go)
-  currently makes one request without pagination parameters despite its
-  full-log contract; confirm endpoint behavior and test multi-page logs.
+- [x] **Add `tasks status`, `tasks logs`, and `tasks wait`.**
+  A UPID printed after interruption can now be used to inspect a task,
+  retrieve its log, or resume waiting. `tasks wait` reuses the corrected
+  wait behavior, and [TaskLog](internal/api/tasks.go) pages through the
+  endpoint's reported total so diagnostics include lines beyond the first
+  page. The API behavior was checked against Proxmox documentation and
+  developer discussion; live-cluster validation remains open.
 
 - [ ] **Add explicit scripted configuration updates.**
   Consider `ct/qm config set` and `config unset` for regular API fields,
@@ -108,15 +101,13 @@ The next milestone should make existing workflows more dependable.
 
 ## Maintenance alongside those milestones
 
-- [ ] **Reconcile project guidance with shipped behavior.**
-  [AGENTS.md](AGENTS.md) still calls packaging automation a non-goal even
-  though GoReleaser and Homebrew configuration exist, describes consoles
-  as SSH-only despite API console support, and describes `qm config` as
-  only containing `edit` despite `view` existing. Update historical notes
-  without losing the reasons behind remaining deliberate limitations.
-- [ ] **Check generated documentation in CI.** Regenerate `docs/cli/`
-  and fail on drift. Keep hand-written examples aligned with the command
-  tree; do not hand-edit generated reference pages.
+- [x] **Reconcile project guidance with shipped behavior.**
+  [AGENTS.md](AGENTS.md) now reflects release automation, API consoles,
+  `qm config view`, and both CT and VM counts in `status`.
+- [x] **Check generated documentation in CI.** The generator omits
+  changing date footers; CI regenerates `docs/cli/` and fails on drift.
+  Keep hand-written examples aligned with the command tree and do not
+  hand-edit generated reference pages.
 - [ ] **Harden the existing installer.**
   [scripts/install.sh](scripts/install.sh) streams an archive directly
   into extraction without checking the release's `checksums.txt`.

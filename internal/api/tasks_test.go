@@ -36,6 +36,38 @@ func TestClientTaskLog(t *testing.T) {
 	}
 }
 
+func TestClientTaskLogReadsEveryPage(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		switch r.URL.Query().Get("start") {
+		case "0":
+			lines := make([]map[string]any, 50)
+			for i := range lines {
+				lines[i] = map[string]any{"n": i + 1, "t": "line"}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": lines, "total": 51})
+		case "50":
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{{"n": 51, "t": "final line"}}, "total": 51})
+		default:
+			t.Errorf("unexpected start = %q", r.URL.Query().Get("start"))
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	lines, err := client.TaskLog(context.Background(), "pve1", "UPID:pve1:1234")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 51 {
+		t.Fatalf("TaskLog() got %d lines, want 51", len(lines))
+	}
+	if lines[50].T != "final line" || requests != 2 {
+		t.Errorf("TaskLog() last=%+v, requests=%d; want final line and two pages", lines[50], requests)
+	}
+}
+
 func TestClientTaskStatusRunning(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api2/json/nodes/pve1/tasks/UPID:pve1:1234/status" {

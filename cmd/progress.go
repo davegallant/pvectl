@@ -22,8 +22,15 @@ const (
 	// for one in-flight task (cf. statusWatchInterval for the whole-cluster
 	// `status --watch` case, which polls even less often since it's a
 	// heavier fetch).
-	taskPollInterval = time.Second
+	taskPollInterval    = time.Second
+	maxTaskPollFailures = 3
 )
+
+var taskWaitTimeout time.Duration
+
+func init() {
+	rootCmd.PersistentFlags().DurationVar(&taskWaitTimeout, "wait-timeout", 0, "maximum time to wait for a Proxmox task (0 waits indefinitely)")
+}
 
 // isInteractive reports whether stdout is a terminal. The live spinner view
 // only makes sense there; piped/scripted output gets a quiet polled result
@@ -118,14 +125,47 @@ func renderTaskOutcome(client *api.Client, node, verbDone string, elapsed time.D
 // on node, then a final ✓/✗ line, when stdout is a terminal. Otherwise it
 // quietly polls the task to completion (no spinner, no escape codes — just
 // polling so a script still gets the real outcome) and prints the same
-// final line. In both modes a failed task returns a non-nil error, so
-// `pvectl` exits non-zero when a triggered task fails, instead of only when
-// the trigger POST itself fails.
+// final line. A failed task or an unconfirmed outcome after interruption,
+// timeout, or repeated polling errors returns a non-nil error.
 func runProgressAction(client *api.Client, node, upid, label, verbDone string) error {
-	if !isInteractive() {
-		return pollTaskQuiet(client, node, upid, label, verbDone)
+	ctx := rootCmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	return watchTask(context.Background(), client, node, upid, label, verbDone)
+	if taskWaitTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, taskWaitTimeout)
+		defer cancel()
+	}
+	if !isInteractive() {
+		return pollTaskQuiet(ctx, client, node, upid, label, verbDone)
+	}
+	return watchTask(ctx, client, node, upid, label, verbDone)
+}
+
+// pollTaskStatus tolerates a short API interruption, then returns the last
+// error with the UPID so the caller can inspect the still-running task.
+func pollTaskStatus(ctx context.Context, client *api.Client, node, upid string, failures *int) (api.TaskStatus, bool, error) {
+	status, err := client.TaskStatus(ctx, node, upid)
+	if err == nil {
+		*failures = 0
+		return status, true, nil
+	}
+	if ctx.Err() != nil {
+		return api.TaskStatus{}, false, interruptedTaskWait(ctx, upid)
+	}
+	*failures++
+	if *failures == 1 {
+		fmt.Fprintf(os.Stderr, "warning: polling task %s: %v (retrying)\n", upid, err)
+	}
+	if *failures >= maxTaskPollFailures {
+		return api.TaskStatus{}, false, fmt.Errorf("stopped polling task %s after %d consecutive errors; it may still be running on Proxmox: %w", upid, *failures, err)
+	}
+	return api.TaskStatus{}, false, nil
+}
+
+func interruptedTaskWait(ctx context.Context, upid string) error {
+	return fmt.Errorf("stopped waiting for task %s; it may still be running on Proxmox: %w", upid, ctx.Err())
 }
 
 // watchTask polls upid's status on node until it finishes, redrawing a
@@ -134,7 +174,8 @@ func runProgressAction(client *api.Client, node, upid, label, verbDone string) e
 // line (`\r` + `\033[K`) rather than a whole multi-line frame (`\033[H`/
 // `\033[J`). Ctrl-C stops watching only; the task keeps running on Proxmox
 // untouched, and the UPID is printed unconditionally (regardless of
-// --verbose) so it can be checked on later.
+// --verbose) so it can be checked on later. The error prevents a caller
+// from continuing a multi-step operation on an unconfirmed task.
 func watchTask(ctx context.Context, client *api.Client, node, upid, label, verbDone string) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
@@ -149,6 +190,7 @@ func watchTask(ctx context.Context, client *api.Client, node, upid, label, verbD
 	defer pollTicker.Stop()
 
 	frame := 0
+	failures := 0
 	redraw := func() {
 		fmt.Printf("\r\033[K%s", formatProgressLine(spinnerFrames[frame%len(spinnerFrames)], time.Since(start), label))
 	}
@@ -158,14 +200,14 @@ func watchTask(ctx context.Context, client *api.Client, node, upid, label, verbD
 		select {
 		case <-ctx.Done():
 			fmt.Printf("\r\033[K%s — still running on Proxmox (upid %s)\n", label, upid)
-			return nil
+			return interruptedTaskWait(ctx, upid)
 		case <-pollTicker.C:
-			status, err := client.TaskStatus(ctx, node, upid)
+			status, got, err := pollTaskStatus(ctx, client, node, upid, &failures)
 			if err != nil {
-				// A transient poll failure doesn't end the watch — the
-				// task itself is unaffected server-side. Keep spinning
-				// and retry on the next tick, same "ride out a blip"
-				// policy as status --watch.
+				fmt.Print("\r\033[K")
+				return err
+			}
+			if !got {
 				continue
 			}
 			if !status.Done() {
@@ -186,32 +228,36 @@ func watchTask(ctx context.Context, client *api.Client, node, upid, label, verbD
 // the interactive path and returns a non-nil error on failure. This is the
 // fix for the scripted case that used to print the done-verb and exit 0 the
 // instant the trigger POST returned, never learning whether the task
-// actually succeeded. A transient poll error is ridden out (continue), same
-// as the interactive path and `status --watch`. Ctrl-C stops polling only
-// — the task keeps running on Proxmox, and the UPID is printed so it can be
-// checked on later.
+// actually succeeded. A transient poll error is retried, but repeated
+// failures end the wait with the last error and UPID. Ctrl-C stops polling
+// only — the task keeps running on Proxmox, and the UPID is printed so it
+// can be checked on later.
 //
 // Blocking to completion in this mode also incidentally fixes a
 // migrate-specific ordering bug: runMigrate calls runProgressAction *then*
 // printTaskLogIfVerbose, so before this change a scripted
 // `ct migrate --verbose` dumped an empty/partial task log while the task was
 // still in flight; now the log is fetched only after the task is done.
-func pollTaskQuiet(client *api.Client, node, upid, label, verbDone string) error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+func pollTaskQuiet(parent context.Context, client *api.Client, node, upid, label, verbDone string) error {
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt)
 	defer stop()
 
 	ticker := time.NewTicker(taskPollInterval)
 	defer ticker.Stop()
 
 	start := time.Now()
+	failures := 0
 	for {
 		select {
 		case <-ctx.Done():
 			fmt.Printf("%s — still running on Proxmox (upid %s)\n", label, upid)
-			return nil
+			return interruptedTaskWait(ctx, upid)
 		case <-ticker.C:
-			status, err := client.TaskStatus(ctx, node, upid)
+			status, got, err := pollTaskStatus(ctx, client, node, upid, &failures)
 			if err != nil {
+				return err
+			}
+			if !got {
 				continue
 			}
 			if !status.Done() {

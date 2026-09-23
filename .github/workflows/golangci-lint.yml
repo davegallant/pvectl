@@ -22,3 +22,10 @@ jobs:
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9
       - name: test
         run: go test ./...
+      - name: CLI docs are current
+        run: |
+          go run ./tools/gendocs
+          if [ -n "$(git status --porcelain -- docs/cli/)" ]; then
+            git status --short -- docs/cli/
+            exit 1
+          fi

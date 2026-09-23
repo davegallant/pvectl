@@ -185,6 +185,12 @@ Other frequently used commands: `pvectl ct start/stop/restart <name>`,
 `pvectl qm ls`, `pvectl status`, and `pvectl tasks ls --watch` for a
 live-refreshing view of cluster activity.
 
+If a task wait is interrupted or loses contact with Proxmox, pvectl prints
+its UPID. The task may still be running on the cluster. Check it later with
+`pvectl tasks status <upid>`, read its complete log with `pvectl tasks logs
+<upid>`, or resume waiting with `pvectl tasks wait <upid>`. Add
+`--wait-timeout 5m` to bound a wait without cancelling the server task.
+
 ### Backups
 
 Backups can be created, deleted, listed, and restored with `pvectl ct backups` and `pvectl qm backups`.

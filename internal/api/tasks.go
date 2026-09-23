@@ -57,19 +57,33 @@ type TaskLogLine struct {
 	T string `json:"t"`
 }
 
-// TaskLog fetches upid's full log on node. Line contents are Proxmox's
+// TaskLog fetches upid's full log on node. The endpoint defaults to a limited
+// first page; its total field tells us when all pages have been collected.
+// Line contents are Proxmox's
 // own free-form, version-dependent text — callers should display it
 // as-is, not parse it, unless the format has been verified against a
 // real capture.
 func (c *Client) TaskLog(ctx context.Context, node, upid string) ([]TaskLogLine, error) {
-	path := fmt.Sprintf("/nodes/%s/tasks/%s/log", node, upid)
-	var resp struct {
-		Data []TaskLogLine `json:"data"`
+	const pageSize = 50
+	var lines []TaskLogLine
+	for start := 0; ; {
+		path := fmt.Sprintf("/nodes/%s/tasks/%s/log?start=%d&limit=%d", node, upid, start, pageSize)
+		var resp struct {
+			Data  []TaskLogLine `json:"data"`
+			Total *int          `json:"total"`
+		}
+		if err := c.do(ctx, http.MethodGet, path, nil, &resp); err != nil {
+			return nil, err
+		}
+		lines = append(lines, resp.Data...)
+		start += len(resp.Data)
+		if resp.Total == nil || start >= *resp.Total {
+			return lines, nil
+		}
+		if len(resp.Data) == 0 {
+			return nil, fmt.Errorf("task log for %s returned no lines before reported total %d", upid, *resp.Total)
+		}
 	}
-	if err := c.do(ctx, http.MethodGet, path, nil, &resp); err != nil {
-		return nil, err
-	}
-	return resp.Data, nil
 }
 
 // ClusterTask is one entry from GET /cluster/tasks — a single worker

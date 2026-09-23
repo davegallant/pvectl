@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -101,6 +102,45 @@ func TestValidateOutputFormatRejectsEmpty(t *testing.T) {
 	outputFormat = ""
 	if err := validateOutputFormat(rootCmd, nil); err == nil {
 		t.Error(`validateOutputFormat() error = nil, want error for --output ""`)
+	}
+}
+
+func TestJSONOutputRejectsUnsupportedCommandsAndWatch(t *testing.T) {
+	oldOutput, oldTasksWatch := outputFormat, tasksWatch
+	defer func() { outputFormat, tasksWatch = oldOutput, oldTasksWatch }()
+	outputFormat = "json"
+
+	for _, tc := range []struct {
+		name string
+		cmd  *cobra.Command
+	}{
+		{"mutating action", qmCreateCmd},
+		{"text status", statusCmd},
+		{"YAML config", configViewCmd},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateOutputFormat(tc.cmd, nil)
+			if err == nil || !strings.Contains(err.Error(), "--output json") {
+				t.Errorf("validation error = %v, want JSON unsupported error", err)
+			}
+		})
+	}
+
+	tasksWatch = true
+	if err := validateOutputFormat(tasksListCmd, nil); err == nil || !strings.Contains(err.Error(), "--watch") {
+		t.Errorf("tasks watch validation error = %v, want --watch incompatibility", err)
+	}
+}
+
+func TestJSONOutputAllowsSupportedReadCommands(t *testing.T) {
+	oldOutput, oldTasksWatch := outputFormat, tasksWatch
+	defer func() { outputFormat, tasksWatch = oldOutput, oldTasksWatch }()
+	outputFormat = "json"
+	tasksWatch = false
+	for _, cmd := range []*cobra.Command{ctListCmd, qmListCmd, tasksListCmd, tasksStatusCmd, tasksLogsCmd, templatesListCmd, isoListCmd, schemaCmd, apiGetCmd} {
+		if err := validateOutputFormat(cmd, nil); err != nil {
+			t.Errorf("%s validation error = %v, want nil", cmd.CommandPath(), err)
+		}
 	}
 }
 

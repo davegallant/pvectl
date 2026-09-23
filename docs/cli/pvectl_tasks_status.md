@@ -1,15 +1,15 @@
-## pvectl ct config view
+## pvectl tasks status
 
-Show a container's config
+Show the current status of a Proxmox task
 
 ```
-pvectl ct config view <name-or-vmid> [flags]
+pvectl tasks status <upid> [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for view
+  -h, --help   help for status
 ```
 
 ### Options inherited from parent commands
@@ -23,4 +23,4 @@ pvectl ct config view <name-or-vmid> [flags]
 
 ### SEE ALSO
 
-* [pvectl ct config](pvectl_ct_config.md)	 - Manage a container's config
+* [pvectl tasks](pvectl_tasks.md)	 - Manage cluster tasks

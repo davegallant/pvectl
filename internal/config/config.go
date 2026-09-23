@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/davegallant/pvectl/internal/privatefile"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -91,5 +93,5 @@ func Save(cfg *Config) error {
 		return fmt.Errorf("encoding config: %w", err)
 	}
 
-	return os.WriteFile(path, data, 0o600)
+	return privatefile.Write(path, data)
 }
