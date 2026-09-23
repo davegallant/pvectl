@@ -344,9 +344,9 @@ var statusCmd = &cobra.Command{
 			return friendlySetupError(err)
 		}
 		if statusWatch {
-			return watchStatus(client)
+			return watchStatus(cmd.Context(), client)
 		}
-		return runStatus(client)
+		return runStatusContext(cmd.Context(), client)
 	},
 }
 
@@ -360,8 +360,8 @@ func init() {
 // interrupts with Ctrl-C. A single fetch error doesn't abort the loop —
 // it's printed and the next tick retries, since a watch is expected to
 // ride out a transient network blip rather than exit.
-func watchStatus(client *api.Client) error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+func watchStatus(commandCtx context.Context, client *api.Client) error {
+	ctx, stop := signal.NotifyContext(commandCtx, os.Interrupt)
 	defer stop()
 
 	// Hide the cursor for the duration of the watch — otherwise it sits
@@ -380,7 +380,7 @@ func watchStatus(client *api.Client) error {
 		// every tick. \033[J after the new content trims any leftover
 		// lines from a previous, longer frame.
 		fmt.Print("\033[H")
-		if err := runStatus(client); err != nil {
+		if err := runStatusContext(ctx, client); err != nil && ctx.Err() == nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		}
 		fmt.Printf("\nRefreshing every %s — press Ctrl-C to stop.\n", statusWatchInterval)
@@ -406,7 +406,10 @@ func watchStatus(client *api.Client) error {
 // even though all three calls were issued in flight together. See also
 // runNodes, which fans out the same two cluster reads the same way.
 func runStatus(client *api.Client) error {
-	ctx := context.Background()
+	return runStatusContext(commandContext(), client)
+}
+
+func runStatusContext(ctx context.Context, client *api.Client) error {
 
 	var (
 		version      string

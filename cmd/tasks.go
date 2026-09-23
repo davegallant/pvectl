@@ -37,9 +37,9 @@ var tasksListCmd = &cobra.Command{
 			return friendlySetupError(err)
 		}
 		if tasksWatch {
-			return watchTasks(client)
+			return watchTasks(cmd.Context(), client)
 		}
-		return runTasks(client)
+		return runTasksContext(cmd.Context(), client)
 	},
 }
 
@@ -50,7 +50,11 @@ func init() {
 }
 
 func runTasks(client *api.Client) error {
-	tasks, err := client.ClusterTasks(context.Background())
+	return runTasksContext(commandContext(), client)
+}
+
+func runTasksContext(ctx context.Context, client *api.Client) error {
+	tasks, err := client.ClusterTasks(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching cluster tasks: %w", err)
 	}
@@ -71,8 +75,8 @@ func runTasks(client *api.Client) error {
 // from a previous, longer frame. A single fetch error doesn't abort the
 // loop; it's printed and the next tick retries, riding out a transient
 // blip the same way watchStatus does.
-func watchTasks(client *api.Client) error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+func watchTasks(commandCtx context.Context, client *api.Client) error {
+	ctx, stop := signal.NotifyContext(commandCtx, os.Interrupt)
 	defer stop()
 
 	fmt.Print("\033[?25l")
@@ -83,7 +87,7 @@ func watchTasks(client *api.Client) error {
 
 	for {
 		fmt.Print("\033[H")
-		if err := runTasks(client); err != nil {
+		if err := runTasksContext(ctx, client); err != nil && ctx.Err() == nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		}
 		fmt.Printf("\nRefreshing every %s — press Ctrl-C to stop.\n", tasksWatchInterval)
