@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added read-only `pvectl doctor` (`-o json` supported) to diagnose local config and secret backend, TLS/API connectivity, effective token permissions, and guest visibility with remediation hints
 - Added `ct/qm config set` and `config unset` for scriptable, digest-protected regular field changes; raw LXC lines and volume-backed fields are excluded
 - Added `--non-interactive` to `ct/qm create`, requiring all prompt-only inputs up front while defaulting optional ISO and post-create start to none/no
 - Release publishing now waits for vet, lint, tests, generated CLI docs, and Linux/macOS/Windows smoke checks of GoReleaser-built archives

@@ -416,6 +416,17 @@ Proxmox cluster or exercise SSH/API consoles or real OS keychains; the
 keychain tests use an in-memory fake. Those combinations need manual
 integration testing against a disposable cluster before relying on them.
 
+To diagnose a local setup without changing the cluster, run `pvectl doctor`
+(`-o json` is also supported). It reports the config path and secret
+backend, checks API connectivity and certificate validation, inspects the
+current token's effective permission grants, and counts guests visible to
+that token. Permission grants are reported with their paths; a grant on
+one VM or storage does not imply access to another. A zero count is
+deliberately reported as ambiguous: missing
+`VM.Audit` rights can hide guests from the resource listing. The report
+never includes the token secret or changes ACLs; failed checks make the
+command exit non-zero.
+
 ## License
 
 pvectl is released under the [GPL-3.0](LICENSE) license.

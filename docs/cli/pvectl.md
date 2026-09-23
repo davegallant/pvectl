@@ -17,6 +17,7 @@ CLI for Proxmox VE
 * [pvectl api](pvectl_api.md)	 - Make a raw Proxmox API call — an escape hatch for endpoints pvectl has no dedicated command for
 * [pvectl config](pvectl_config.md)	 - Manage pvectl's own configuration
 * [pvectl ct](pvectl_ct.md)	 - Manage containers
+* [pvectl doctor](pvectl_doctor.md)	 - Check local setup, API connectivity, and effective Proxmox permissions
 * [pvectl iso](pvectl_iso.md)	 - Manage ISO images
 * [pvectl nodes](pvectl_nodes.md)	 - Manage Proxmox cluster nodes
 * [pvectl qm](pvectl_qm.md)	 - Manage QEMU VMs

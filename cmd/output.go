@@ -33,6 +33,7 @@ var jsonCommands = map[string]bool{
 	"pvectl iso list": true, "pvectl schema": true,
 	"pvectl api get": true, "pvectl api post": true,
 	"pvectl api put": true, "pvectl api delete": true,
+	"pvectl doctor": true,
 }
 
 func init() {

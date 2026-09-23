@@ -74,13 +74,12 @@ The next milestone should make existing workflows more dependable.
   `--start` means leave stopped. Tests cover closed stdin and missing
   inputs before mutation.
 
-- [ ] **Provide a read-only diagnostic command.**
-  A `doctor` command could report config location/backend, API connectivity,
-  TLS validation, and effective permissions for common operations, with
-  remediation hints. Setup's version check cannot establish resource
-  permissions. Never print secrets or change ACLs automatically; report
-  denied diagnostic checks without interpreting an empty list as proof
-  that the cluster has no guests.
+- [x] **Provide a read-only diagnostic command.**
+  `doctor` reports config location/backend, API and TLS checks, effective
+  permissions for common operations, and visible guest counts with
+  remediation hints. It uses read-only API calls, never prints secrets or
+  changes ACLs, and does not interpret an empty guest list as proof the
+  cluster has no guests.
 
 ## Later: additions driven by actual use
 
