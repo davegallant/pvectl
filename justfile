@@ -19,6 +19,7 @@ run *args:
 # Run the test suite
 test:
     go test ./...
+    sh scripts/install_test.sh
 
 # Run go vet
 vet:

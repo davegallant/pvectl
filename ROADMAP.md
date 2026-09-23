@@ -105,13 +105,12 @@ The next milestone should make existing workflows more dependable.
   changing date footers; CI regenerates `docs/cli/` and fails on drift.
   Keep hand-written examples aligned with the command tree and do not
   hand-edit generated reference pages.
-- [ ] **Harden the existing installer.**
-  [scripts/install.sh](scripts/install.sh) streams an archive directly
-  into extraction without checking the release's `checksums.txt`.
-  Download first, verify its checksum, then install. Allow a pinned release
-  and document `INSTALL_DIR` for user-local installs. Test checksum failure
-  and unsupported platforms. Checksums detect corruption; they do not
-  independently authenticate a compromised release source.
+- [x] **Harden the existing installer.**
+  [scripts/install.sh](scripts/install.sh) downloads and verifies the
+  archive against `checksums.txt` before extraction, supports a pinned
+  `PVECTL_VERSION` and user-local `INSTALL_DIR`, and has offline tests for
+  success, checksum failure, and unsupported platforms. Checksums detect
+  corruption, not compromise of the release source.
 - [x] **Gate publishing on validation.**
   [Release CI](.github/workflows/release.yml) now requires vet, lint,
   tests, generated-doc checks, and Linux/macOS/Windows smoke tests of

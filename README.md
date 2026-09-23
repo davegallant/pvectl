@@ -42,6 +42,19 @@ With curl (Linux):
 curl -fsSL https://raw.githubusercontent.com/davegallant/pvectl/main/scripts/install.sh | sh
 ```
 
+The installer verifies the archive against the release's `checksums.txt`
+before extraction. To pin a release or install without `sudo`, download the
+script and run it with `PVECTL_VERSION` and `INSTALL_DIR`:
+
+```sh
+curl -fsSLo install.sh https://raw.githubusercontent.com/davegallant/pvectl/main/scripts/install.sh
+PVECTL_VERSION=v0.3.0 INSTALL_DIR="$HOME/.local/bin" sh install.sh
+```
+
+Add that directory to `PATH` if needed. Checksums detect accidental
+corruption, but do not independently authenticate a compromised release
+source.
+
 With Nix:
 
 ```sh
