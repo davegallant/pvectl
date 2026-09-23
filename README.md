@@ -120,6 +120,8 @@ Once setup is complete, you can run `pvectl status` to verify your cluster is he
 
 For full usage instructions, see [`the cli docs`](docs/cli/pvectl.md).
 
+See the [roadmap](ROADMAP.md) for proposed improvements and development priorities.
+
 ### Examples
 
 List containers across the cluster:
