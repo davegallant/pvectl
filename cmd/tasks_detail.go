@@ -19,7 +19,7 @@ var tasksStatusCmd = &cobra.Command{
 		if err != nil {
 			return friendlySetupError(err)
 		}
-		return runTaskStatus(client, args[0])
+		return runTaskStatusContext(cmd.Context(), client, args[0])
 	},
 }
 
@@ -33,7 +33,7 @@ var tasksLogsCmd = &cobra.Command{
 		if err != nil {
 			return friendlySetupError(err)
 		}
-		return runTaskLogs(client, args[0])
+		return runTaskLogsContext(cmd.Context(), client, args[0])
 	},
 }
 
@@ -72,11 +72,15 @@ func taskUPIDNode(upid string) (string, error) {
 }
 
 func runTaskStatus(client *api.Client, upid string) error {
+	return runTaskStatusContext(commandContext(), client, upid)
+}
+
+func runTaskStatusContext(ctx context.Context, client *api.Client, upid string) error {
 	node, err := taskUPIDNode(upid)
 	if err != nil {
 		return err
 	}
-	status, err := client.TaskStatus(context.Background(), node, upid)
+	status, err := client.TaskStatus(ctx, node, upid)
 	if err != nil {
 		return fmt.Errorf("fetching task %s status: %w", upid, err)
 	}
@@ -99,11 +103,15 @@ func runTaskStatus(client *api.Client, upid string) error {
 }
 
 func runTaskLogs(client *api.Client, upid string) error {
+	return runTaskLogsContext(commandContext(), client, upid)
+}
+
+func runTaskLogsContext(ctx context.Context, client *api.Client, upid string) error {
 	node, err := taskUPIDNode(upid)
 	if err != nil {
 		return err
 	}
-	lines, err := client.TaskLog(context.Background(), node, upid)
+	lines, err := client.TaskLog(ctx, node, upid)
 	if err != nil {
 		return fmt.Errorf("fetching task %s log: %w", upid, err)
 	}

@@ -2,16 +2,65 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/davegallant/pvectl/internal/api"
 )
+
+func TestTaskDetailsUseCommandCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	old := rootCmd.Context()
+	rootCmd.SetContext(ctx)
+	t.Cleanup(func() { rootCmd.SetContext(old) })
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("canceled task detail request reached server")
+	}))
+	defer s.Close()
+	client := api.NewClient(s.URL, "user@pve!test", "secret", true)
+	for _, run := range []func(*api.Client, string) error{runTaskStatus, runTaskLogs} {
+		if err := run(client, "UPID:pve1:1234"); !errors.Is(err, context.Canceled) {
+			t.Errorf("task detail error = %v, want context cancellation", err)
+		}
+	}
+}
+
+func TestTaskLogsCancelInFlightFetch(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	old := rootCmd.Context()
+	rootCmd.SetContext(ctx)
+	t.Cleanup(func() { rootCmd.SetContext(old) })
+	started := make(chan struct{})
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done()
+	}))
+	defer s.Close()
+	client := api.NewClient(s.URL, "user@pve!test", "secret", true)
+	done := make(chan error, 1)
+	go func() { done <- runTaskLogs(client, "UPID:pve1:1234") }()
+	<-started
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("runTaskLogs() error = %v, want cancellation", err)
+		}
+	case <-time.After(time.Second):
+		s.CloseClientConnections()
+		t.Fatal("in-flight task log fetch did not stop after cancellation")
+	}
+}
 
 func captureTaskOutput(t *testing.T, run func() error) (string, error) {
 	t.Helper()

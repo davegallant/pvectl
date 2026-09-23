@@ -122,8 +122,8 @@ The next milestone should make existing workflows more dependable.
   command-level `context.Background()` calls with a shared command context,
   especially in watches and multi-step operations. Verify that cancellation
   stops pending client work without claiming to cancel a server task.
-  `status` and `tasks list` (including watches) now use the command context,
-  with tests for cancellation before and during an API fetch; other
+  `status`, `tasks list` (including watches), and `tasks status/logs` now use
+  the command context, with tests for cancellation before and during an API fetch; other
   commands and multi-step actions still need conversion.
 
 ## Scope boundaries
