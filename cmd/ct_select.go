@@ -13,7 +13,8 @@ import (
 // interactive picker. A numeric identifier is matched against vmid
 // (unique cluster-wide); anything else is matched against name (not
 // guaranteed unique, so an ambiguous match is rejected rather than
-// guessed at).
+// guessed at). Note the numeric-first order means a container literally
+// named e.g. "100" can never be addressed by name — use its vmid.
 func findContainer(client *api.Client, identifier string) (api.Container, error) {
 	containers, err := client.ListContainers(context.Background())
 	if err != nil {

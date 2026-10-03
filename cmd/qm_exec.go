@@ -49,7 +49,7 @@ and running inside the guest.`,
 		if err != nil {
 			return err
 		}
-		return runQmExec(client, v, args[1:])
+		return runQmExec(cmd.Context(), client, v, args[1:])
 	},
 }
 
@@ -85,9 +85,7 @@ func (e exitCodeError) ExitCode() int { return e.code }
 // runQmExec starts command in v's guest and blocks until it exits or
 // qmExecTimeout elapses, forwarding the guest's stdout/stderr and exit
 // status to pvectl's own.
-func runQmExec(client *api.Client, v api.VM, command []string) error {
-	ctx := context.Background()
-
+func runQmExec(ctx context.Context, client *api.Client, v api.VM, command []string) error {
 	// Checked up front so the common misconfiguration produces a
 	// actionable message rather than the API's generic agent error.
 	config, err := client.GetVMConfig(ctx, v.Node, v.VMID)
@@ -136,15 +134,20 @@ func runQmExec(client *api.Client, v api.VM, command []string) error {
 	return nil
 }
 
-// pollAgentExec polls exec-status until the guest command exits or the
-// timeout elapses. A timeout reports the guest-side pid, since the command
-// keeps running in the guest after pvectl stops waiting — the user needs
-// the pid to check on it.
+// pollAgentExec polls exec-status until the guest command exits, the
+// timeout elapses, or ctx is cancelled. A timeout or cancellation reports
+// the guest-side pid, since the command keeps running in the guest after
+// pvectl stops waiting — the user needs the pid to check on it.
 func pollAgentExec(ctx context.Context, client *api.Client, v api.VM, pid int) (api.AgentExecResult, error) {
 	deadline := time.Now().Add(qmExecTimeout)
+	ticker := time.NewTicker(qmExecPollInterval)
+	defer ticker.Stop()
 	for {
 		result, err := client.AgentExecStatus(ctx, v.Node, v.VMID, pid)
 		if err != nil {
+			if ctx.Err() != nil {
+				return api.AgentExecResult{}, interruptedAgentExec(ctx, v, pid)
+			}
 			return api.AgentExecResult{}, fmt.Errorf("polling command status in %s (%d): %w", v.Name, v.VMID, err)
 		}
 		if result.Exited {
@@ -154,6 +157,19 @@ func pollAgentExec(ctx context.Context, client *api.Client, v api.VM, pid int) (
 			return api.AgentExecResult{}, fmt.Errorf("command did not finish within %s — it is still running in %s (%d) as guest pid %d",
 				qmExecTimeout, v.Name, v.VMID, pid)
 		}
-		time.Sleep(qmExecPollInterval)
+		select {
+		case <-ctx.Done():
+			return api.AgentExecResult{}, interruptedAgentExec(ctx, v, pid)
+		case <-ticker.C:
+		}
 	}
+}
+
+// interruptedAgentExec reports a qm exec wait that ended before the guest
+// command did — the command keeps running in the guest, so the error names
+// its guest pid for follow-up, mirroring the task-wait paths' UPID
+// reporting in progress.go.
+func interruptedAgentExec(ctx context.Context, v api.VM, pid int) error {
+	return fmt.Errorf("stopped waiting for command in %s (%d) — it is still running in the guest as pid %d: %w",
+		v.Name, v.VMID, pid, ctx.Err())
 }

@@ -344,9 +344,9 @@ var statusCmd = &cobra.Command{
 			return friendlySetupError(err)
 		}
 		if statusWatch {
-			return watchStatus(cmd.Context(), client)
+			return watchStatus(cmd, client)
 		}
-		return runStatusContext(cmd.Context(), client)
+		return runStatusContext(cmd.Context(), cmd.OutOrStdout(), client)
 	},
 }
 
@@ -360,15 +360,20 @@ func init() {
 // interrupts with Ctrl-C. A single fetch error doesn't abort the loop —
 // it's printed and the next tick retries, since a watch is expected to
 // ride out a transient network blip rather than exit.
-func watchStatus(commandCtx context.Context, client *api.Client) error {
-	ctx, stop := signal.NotifyContext(commandCtx, os.Interrupt)
+func watchStatus(cmd *cobra.Command, client *api.Client) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
 	defer stop()
+
+	// The watch frame goes to the command's output writer rather than
+	// os.Stdout directly, so --watch honors cobra's output routing the
+	// same way every other command does.
+	out := cmd.OutOrStdout()
 
 	// Hide the cursor for the duration of the watch — otherwise it sits
 	// wherever the last redraw left it and visibly jumps/blinks there on
 	// every tick. Always restored on the way out, however we exit.
-	fmt.Print("\033[?25l")
-	defer fmt.Print("\033[?25h")
+	fmt.Fprint(out, "\033[?25l")
+	defer fmt.Fprint(out, "\033[?25h")
 
 	ticker := time.NewTicker(statusWatchInterval)
 	defer ticker.Stop()
@@ -379,12 +384,12 @@ func watchStatus(commandCtx context.Context, client *api.Client) error {
 		// blank frame on screen between the two, which reads as a flicker
 		// every tick. \033[J after the new content trims any leftover
 		// lines from a previous, longer frame.
-		fmt.Print("\033[H")
-		if err := runStatusContext(ctx, client); err != nil && ctx.Err() == nil {
+		fmt.Fprint(out, "\033[H")
+		if err := runStatusContext(ctx, out, client); err != nil && ctx.Err() == nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		}
-		fmt.Printf("\nRefreshing every %s — press Ctrl-C to stop.\n", statusWatchInterval)
-		fmt.Print("\033[J")
+		fmt.Fprintf(out, "\nRefreshing every %s — press Ctrl-C to stop.\n", statusWatchInterval)
+		fmt.Fprint(out, "\033[J")
 
 		select {
 		case <-ctx.Done():
@@ -406,10 +411,10 @@ func watchStatus(commandCtx context.Context, client *api.Client) error {
 // even though all three calls were issued in flight together. See also
 // runNodes, which fans out the same two cluster reads the same way.
 func runStatus(client *api.Client) error {
-	return runStatusContext(commandContext(), client)
+	return runStatusContext(commandContext(), os.Stdout, client)
 }
 
-func runStatusContext(ctx context.Context, client *api.Client) error {
+func runStatusContext(ctx context.Context, out io.Writer, client *api.Client) error {
 
 	var (
 		version      string
@@ -436,6 +441,6 @@ func runStatusContext(ctx context.Context, client *api.Client) error {
 		return fmt.Errorf("fetching cluster resources: %w", resourcesErr)
 	}
 
-	fmt.Print(renderStatus(version, status, resources))
+	fmt.Fprint(out, renderStatus(version, status, resources))
 	return nil
 }

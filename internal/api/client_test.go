@@ -303,3 +303,20 @@ func indexOf(s, substr string) int {
 	}
 	return -1
 }
+
+func TestClientRejectsOversizeResponseBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// Just over the cap: the client must refuse to buffer it.
+		_, _ = w.Write(make([]byte, maxResponseBody+1))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret123", true)
+
+	if _, err := client.Version(context.Background()); err == nil {
+		t.Fatal("Version() error = nil, want an error for an oversize response body")
+	} else if !stringsContains(err.Error(), "exceeded") {
+		t.Errorf("Version() error = %q, want it to mention the size limit", err.Error())
+	}
+}

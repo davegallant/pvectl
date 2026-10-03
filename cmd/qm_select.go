@@ -8,7 +8,9 @@ import (
 	"github.com/davegallant/pvectl/internal/api"
 )
 
-// findVM is findContainer's mirror for QEMU VMs.
+// findVM is findContainer's mirror for QEMU VMs. Like findContainer, a
+// numeric identifier is matched as a vmid first, so a VM literally named
+// e.g. "100" can never be addressed by name — use its vmid.
 func findVM(client *api.Client, identifier string) (api.VM, error) {
 	vms, err := client.ListVMs(context.Background())
 	if err != nil {

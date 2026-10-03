@@ -35,10 +35,50 @@ func TestBuildVMCmdArgs(t *testing.T) {
 	}
 }
 
+func TestShellQuote(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"plain", "ls", "'ls'"},
+		{"spaces", "a b", "'a b'"},
+		{"semicolon", "a; touch /tmp/x", "'a; touch /tmp/x'"},
+		{"dollar", "$(rm -rf /)", "'$(rm -rf /)'"},
+		{"single quote", "it's", "'it'\\''s'"},
+		{"empty", "", "''"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shellQuote(tt.in); got != tt.want {
+				t.Errorf("shellQuote(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestBuildExecCmdArgs(t *testing.T) {
 	cmd := buildExecCmd("pve1", 101, []string{"ls", "-la"})
 
-	want := []string{"ssh", "pve1", "pct", "exec", "101", "--", "ls", "-la"}
+	want := []string{"ssh", "pve1", "pct", "exec", "101", "--", "'ls'", "'-la'"}
+	if len(cmd.Args) != len(want) {
+		t.Fatalf("Args = %v, want %v", cmd.Args, want)
+	}
+	for i, arg := range want {
+		if cmd.Args[i] != arg {
+			t.Errorf("Args[%d] = %q, want %q", i, cmd.Args[i], arg)
+		}
+	}
+}
+
+// TestBuildExecCmdQuotesMetacharacters is the regression test for the
+// shell-injection bug: ssh joins its argv with spaces into one remote
+// command string, so an unquoted `;` in a guest command argument used to
+// execute on the node itself rather than inside the container.
+func TestBuildExecCmdQuotesMetacharacters(t *testing.T) {
+	cmd := buildExecCmd("pve1", 101, []string{"grep", "-r", "a; touch /tmp/x", "/etc"})
+
+	want := []string{"ssh", "pve1", "pct", "exec", "101", "--", "'grep'", "'-r'", "'a; touch /tmp/x'", "'/etc'"}
 	if len(cmd.Args) != len(want) {
 		t.Fatalf("Args = %v, want %v", cmd.Args, want)
 	}
@@ -106,7 +146,21 @@ func TestBuildUnlockVMCmdArgs(t *testing.T) {
 func TestBuildListDirCmdArgs(t *testing.T) {
 	cmd := buildListDirCmd(context.Background(), "pve1", 101, "sub/dir/")
 
-	want := []string{"ssh", "-o", "BatchMode=yes", "pve1", "pct", "exec", "101", "--", "ls", "-1p", "--", "sub/dir/"}
+	want := []string{"ssh", "-o", "BatchMode=yes", "pve1", "pct", "exec", "101", "--", "ls", "-1p", "--", "'sub/dir/'"}
+	if len(cmd.Args) != len(want) {
+		t.Fatalf("Args = %v, want %v", cmd.Args, want)
+	}
+	for i, arg := range want {
+		if cmd.Args[i] != arg {
+			t.Errorf("Args[%d] = %q, want %q", i, cmd.Args[i], arg)
+		}
+	}
+}
+
+func TestBuildListDirCmdQuotesDir(t *testing.T) {
+	cmd := buildListDirCmd(context.Background(), "pve1", 101, "my dir;rm -rf /")
+
+	want := []string{"ssh", "-o", "BatchMode=yes", "pve1", "pct", "exec", "101", "--", "ls", "-1p", "--", "'my dir;rm -rf /'"}
 	if len(cmd.Args) != len(want) {
 		t.Fatalf("Args = %v, want %v", cmd.Args, want)
 	}

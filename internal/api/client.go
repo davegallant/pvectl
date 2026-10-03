@@ -21,6 +21,11 @@ import (
 // error instead of hanging the CLI forever.
 const requestTimeout = 30 * time.Second
 
+// maxResponseBody caps a single API response body. Proxmox's JSON replies
+// are small — task logs arrive paged 50 lines at a time — so anything
+// larger is a misbehaving or compromised server, not a legitimate payload.
+const maxResponseBody = 32 << 20
+
 // Client talks to a Proxmox VE cluster's REST API using API token auth.
 type Client struct {
 	baseURL     string
@@ -128,9 +133,12 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader, ou
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody+1))
 	if err != nil {
 		return fmt.Errorf("reading proxmox api response: %w", err)
+	}
+	if len(respBody) > maxResponseBody {
+		return fmt.Errorf("proxmox api response exceeded %d bytes", maxResponseBody)
 	}
 
 	c.logf("<-- %d (%s)", resp.StatusCode, time.Since(start))

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"sort"
@@ -37,9 +38,9 @@ var tasksListCmd = &cobra.Command{
 			return friendlySetupError(err)
 		}
 		if tasksWatch {
-			return watchTasks(cmd.Context(), client)
+			return watchTasks(cmd, client)
 		}
-		return runTasksContext(cmd.Context(), client)
+		return runTasksContext(cmd.Context(), cmd.OutOrStdout(), client)
 	},
 }
 
@@ -50,10 +51,10 @@ func init() {
 }
 
 func runTasks(client *api.Client) error {
-	return runTasksContext(commandContext(), client)
+	return runTasksContext(commandContext(), os.Stdout, client)
 }
 
-func runTasksContext(ctx context.Context, client *api.Client) error {
+func runTasksContext(ctx context.Context, out io.Writer, client *api.Client) error {
 	tasks, err := client.ClusterTasks(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching cluster tasks: %w", err)
@@ -75,23 +76,27 @@ func runTasksContext(ctx context.Context, client *api.Client) error {
 // from a previous, longer frame. A single fetch error doesn't abort the
 // loop; it's printed and the next tick retries, riding out a transient
 // blip the same way watchStatus does.
-func watchTasks(commandCtx context.Context, client *api.Client) error {
-	ctx, stop := signal.NotifyContext(commandCtx, os.Interrupt)
+func watchTasks(cmd *cobra.Command, client *api.Client) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
 	defer stop()
 
-	fmt.Print("\033[?25l")
-	defer fmt.Print("\033[?25h")
+	// Same output-routing discipline as watchStatus: the redraw frame
+	// goes to the command's writer, not os.Stdout directly.
+	out := cmd.OutOrStdout()
+
+	fmt.Fprint(out, "\033[?25l")
+	defer fmt.Fprint(out, "\033[?25h")
 
 	ticker := time.NewTicker(tasksWatchInterval)
 	defer ticker.Stop()
 
 	for {
-		fmt.Print("\033[H")
-		if err := runTasksContext(ctx, client); err != nil && ctx.Err() == nil {
+		fmt.Fprint(out, "\033[H")
+		if err := runTasksContext(ctx, out, client); err != nil && ctx.Err() == nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		}
-		fmt.Printf("\nRefreshing every %s — press Ctrl-C to stop.\n", tasksWatchInterval)
-		fmt.Print("\033[J")
+		fmt.Fprintf(out, "\nRefreshing every %s — press Ctrl-C to stop.\n", tasksWatchInterval)
+		fmt.Fprint(out, "\033[J")
 
 		select {
 		case <-ctx.Done():

@@ -62,6 +62,18 @@ func EnterVM(node string, vmid int) error {
 	return buildVMCmd(node, vmid).Run()
 }
 
+// shellQuote quotes s for interpretation by the remote shell. ssh joins
+// its argv with spaces into a single remote command string, so an argument
+// containing shell metacharacters (spaces, ;, $, quotes, ...) would
+// otherwise be interpreted by the node's shell instead of reaching the
+// remote command intact — e.g. `ct exec c1 -- grep -r 'a; touch /tmp/x'`
+// /etc` used to run `touch /tmp/x` on the node itself. The argument is
+// wrapped in single quotes, with embedded single quotes escaped the
+// POSIX-portable way.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // buildAppendRawConfigCmd constructs `ssh <node> cat >> /etc/pve/lxc/<vmid>.conf`,
 // with lines written to the remote command's stdin rather than embedded in
 // the command string — avoids any need to shell-quote arbitrary raw lxc.*
@@ -136,9 +148,16 @@ func UnlockVM(node string, vmid int) error {
 // command, wired to the current process's stdio. Unlike buildCmd (`pct
 // enter`), no `-t` is passed: pct exec doesn't need a pty to run a command
 // and stream its output, and forcing one would corrupt clean output for
-// scripting/piping.
+// scripting/piping. Each command argument is shell-quoted: ssh joins its
+// argv with spaces into one remote command string, so without quoting the
+// node's shell would interpret metacharacters in the arguments (spaces,
+// `;`, `$()`, ...) instead of passing them through to pct.
 func buildExecCmd(node string, vmid int, command []string) *exec.Cmd {
-	args := append([]string{node, "pct", "exec", fmt.Sprintf("%d", vmid), "--"}, command...)
+	quoted := make([]string, len(command))
+	for i, arg := range command {
+		quoted[i] = shellQuote(arg)
+	}
+	args := append([]string{node, "pct", "exec", fmt.Sprintf("%d", vmid), "--"}, quoted...)
 	cmd := exec.Command("ssh", args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -164,8 +183,10 @@ func Exec(node string, vmid int, command []string) error {
 // (password/host-key confirmation), so a stalled auth attempt fails fast
 // instead of hanging the shell's Tab key; -p appends a trailing "/" to
 // directory entries so completions can preserve that distinction locally.
+// dir is shell-quoted (see shellQuote): it comes from the user's partially
+// typed command line, so it can contain spaces or other metacharacters.
 func buildListDirCmd(ctx context.Context, node string, vmid int, dir string) *exec.Cmd {
-	return exec.CommandContext(ctx, "ssh", "-o", "BatchMode=yes", node, "pct", "exec", fmt.Sprintf("%d", vmid), "--", "ls", "-1p", "--", dir)
+	return exec.CommandContext(ctx, "ssh", "-o", "BatchMode=yes", node, "pct", "exec", fmt.Sprintf("%d", vmid), "--", "ls", "-1p", "--", shellQuote(dir))
 }
 
 // parseListDirOutput splits ls -1p's stdout into entries, dropping the

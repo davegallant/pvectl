@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fixed `ct exec` passing command arguments through the node's shell unquoted (ssh joins argv with spaces into one remote command string), so metacharacters like `;` or `$()` in a guest command no longer execute on the node itself — arguments are now shell-quoted before handoff
+- `qm exec` now honors command cancellation (Ctrl-C stops the wait and reports the guest pid, since the command keeps running in the guest) instead of ignoring it
+- API responses larger than 32 MiB are now rejected instead of buffered without limit
+- `status --watch` and `tasks list --watch` now draw through cobra's output writer instead of writing to os.Stdout directly
+- Documented that a guest literally named like a number (e.g. "100") can only be addressed by vmid, since numeric identifiers match vmid first
+
 ## 0.4.1
 
 - Fixed Windows release smoke testing to extract the `.tar.gz` archive GoReleaser produces, so it no longer blocks publishing
