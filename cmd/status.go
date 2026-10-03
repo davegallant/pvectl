@@ -372,8 +372,10 @@ func watchStatus(cmd *cobra.Command, client *api.Client) error {
 	// Hide the cursor for the duration of the watch — otherwise it sits
 	// wherever the last redraw left it and visibly jumps/blinks there on
 	// every tick. Always restored on the way out, however we exit.
-	fmt.Fprint(out, "\033[?25l")
-	defer fmt.Fprint(out, "\033[?25h")
+	if _, err := fmt.Fprint(out, "\033[?25l"); err != nil {
+		return err
+	}
+	defer func() { _, _ = fmt.Fprint(out, "\033[?25h") }()
 
 	ticker := time.NewTicker(statusWatchInterval)
 	defer ticker.Stop()
@@ -384,12 +386,18 @@ func watchStatus(cmd *cobra.Command, client *api.Client) error {
 		// blank frame on screen between the two, which reads as a flicker
 		// every tick. \033[J after the new content trims any leftover
 		// lines from a previous, longer frame.
-		fmt.Fprint(out, "\033[H")
+		if _, err := fmt.Fprint(out, "\033[H"); err != nil {
+			return err
+		}
 		if err := runStatusContext(ctx, out, client); err != nil && ctx.Err() == nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		}
-		fmt.Fprintf(out, "\nRefreshing every %s — press Ctrl-C to stop.\n", statusWatchInterval)
-		fmt.Fprint(out, "\033[J")
+		if _, err := fmt.Fprintf(out, "\nRefreshing every %s — press Ctrl-C to stop.\n", statusWatchInterval); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprint(out, "\033[J"); err != nil {
+			return err
+		}
 
 		select {
 		case <-ctx.Done():
@@ -441,6 +449,6 @@ func runStatusContext(ctx context.Context, out io.Writer, client *api.Client) er
 		return fmt.Errorf("fetching cluster resources: %w", resourcesErr)
 	}
 
-	fmt.Fprint(out, renderStatus(version, status, resources))
-	return nil
+	_, err := fmt.Fprint(out, renderStatus(version, status, resources))
+	return err
 }

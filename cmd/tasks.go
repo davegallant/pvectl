@@ -84,19 +84,27 @@ func watchTasks(cmd *cobra.Command, client *api.Client) error {
 	// goes to the command's writer, not os.Stdout directly.
 	out := cmd.OutOrStdout()
 
-	fmt.Fprint(out, "\033[?25l")
-	defer fmt.Fprint(out, "\033[?25h")
+	if _, err := fmt.Fprint(out, "\033[?25l"); err != nil {
+		return err
+	}
+	defer func() { _, _ = fmt.Fprint(out, "\033[?25h") }()
 
 	ticker := time.NewTicker(tasksWatchInterval)
 	defer ticker.Stop()
 
 	for {
-		fmt.Fprint(out, "\033[H")
+		if _, err := fmt.Fprint(out, "\033[H"); err != nil {
+			return err
+		}
 		if err := runTasksContext(ctx, out, client); err != nil && ctx.Err() == nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		}
-		fmt.Fprintf(out, "\nRefreshing every %s — press Ctrl-C to stop.\n", tasksWatchInterval)
-		fmt.Fprint(out, "\033[J")
+		if _, err := fmt.Fprintf(out, "\nRefreshing every %s — press Ctrl-C to stop.\n", tasksWatchInterval); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprint(out, "\033[J"); err != nil {
+			return err
+		}
 
 		select {
 		case <-ctx.Done():
